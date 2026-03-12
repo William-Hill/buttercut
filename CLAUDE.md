@@ -158,7 +158,7 @@ When processing multiple videos, use parallel agents for maximum throughput:
 1. **Parent agent responsibilities:**
    - Read library.yaml for language code
    - Read library.yaml to find videos needing work
-   - Launch Task agents with transcribe-audio or analyze-video skills
+   - Launch Task agents with transcribe-audio (use `model: haiku`) or analyze-video skills
    - Update library.yaml sequentially as agents complete
    - Handle errors and retries
 
