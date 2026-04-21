@@ -181,6 +181,8 @@ Each library has a `library.yaml` file that serves as your persistent memory and
 
 **If library structure seems wrong, check CHANGELOG.md.** The library.yaml format has evolved over versions. If you encounter unexpected field names (like `transcript_path` instead of `transcript`, or `footage_description` instead of `footage_summary`), read CHANGELOG.md to understand breaking changes and available migration scripts. The canonical field names are those in `templates/library_template.yaml` — always use those names; rename any old-schema fields you encounter to match.
 
+**Keep main-thread context minimal.** The main thread orchestrates; sub-agents do the heavy work and return concise summaries. Don't read full transcript JSON, visual transcript JSON, or extracted frames into the main thread as part of routine workflow — across a large library this bloats context fast. Trust sub-agent return messages when updating library.yaml. Direct user requests ("show me transcript X") are fine; the rule is about automatic workflow behavior.
+
 **Use actual filenames.** Never use generic labels like "Video 1" or "Clip A" - always reference actual filenames like "DJI_20250423171212_0210_D.mov" for clear traceability.
 
 **Visual transcripts are mandatory.** Before creating any rough cut or sequence, verify ALL videos have both audio and visual transcripts. Check `library.yaml` - every video entry must have a `visual_transcript` with a filename (not empty or null or ""). Transcripts are stored in `libraries/[library-name]/transcripts/`. Visual descriptions are essential for shot selection, pacing decisions, and B-roll placement.
