@@ -179,7 +179,7 @@ When processing multiple videos, use parallel agents for maximum throughput:
 
 Each library has a `library.yaml` file that serves as your persistent memory and the SOURCE OF TRUTH. This file contains all library metadata, footage descriptions, transcription status, and key learnings. Always read this file when working on a library and you need guidance for how/where to save files.
 
-**If library structure seems wrong, check CHANGELOG.md.** The library.yaml format has evolved over versions. If you encounter unexpected field names (like `transcript_path` instead of `transcript`), read CHANGELOG.md to understand breaking changes and available migration scripts.
+**If library structure seems wrong, check CHANGELOG.md.** The library.yaml format has evolved over versions. If you encounter unexpected field names (like `transcript_path` instead of `transcript`, or `footage_description` instead of `footage_summary`), read CHANGELOG.md to understand breaking changes and available migration scripts. The canonical field names are those in `templates/library_template.yaml` — always use those names; rename any old-schema fields you encounter to match.
 
 **Use actual filenames.** Never use generic labels like "Video 1" or "Clip A" - always reference actual filenames like "DJI_20250423171212_0210_D.mov" for clear traceability.
 
