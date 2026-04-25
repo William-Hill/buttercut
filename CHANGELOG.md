@@ -5,14 +5,25 @@ All notable changes to ButterCut will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.5.0] - 2026-04-24
 
 ### Added
-- AI transcript refinement inside transcribe-audio (on by default). Controlled per-library via `transcript_refinement` in each library's `library.yaml`. New `.claude/skills/transcribe-audio/refine_instructions.md` holds the refinement rubric, which uses library context (user_context, footage_summary) to correct misheard words in place while preserving word-count and timing alignment.
+- **Improve video analysis performance and accurracy.** After WhisperX runs, ButterCut now optionally reviews transcripts and fixes misheard words using your library's context — names, places, technical jargon, speakers with accents, etc. On by default for new libraries.
+- **Global preferences.** Your editor (Final Cut / Premiere / Resolve) and Whisper model preference now live in one `libraries/settings.yaml` and apply to every new library.
+- Contribution guidelines in the README.
 
 ### Changed
-- Default WhisperX model changed from `medium` to `small`. Paired with the new refinement pass, this is faster AND more accurate than the old default. Users can opt into a larger model via `libraries/settings.yaml`.
-- Renamed `footage_description` → `footage_summary` in remaining old-schema library.yaml files. The canonical field name lives in `templates/library_template.yaml`.
+- **Faster, more accurate default transcription.** Default Whisper model is now `small` (was `medium`). Paired with the new proofreading step, this is both faster and more accurate than the old default. Larger, slower models are still available if you want.
+
+  Benchmark on a 5-minute speech clip (CPU, float32):
+
+  | model  | wall time | speedup vs realtime | user CPU  |
+  | ------ | --------- | ------------------- | --------- |
+  | medium | **90.1s** | 3.3×                | 143.0 s   |
+  | small  | **47.7s** | 6.3×                | 82.8 s    |
+
+- Renamed `footage_description` → `footage_summary` in the library schema. Migration script below handles existing libraries.
+- Release workflow now runs `bundle install` after a version bump so `Gemfile.lock` stays in sync.
 
 ### Migration
 Libraries created before this release have no `transcript_refinement` field. Their existing transcripts were never refined, so the key defaults to `false` on migration — new libraries still default to `true` via the template. If you want refinement on an existing library, flip the field to `true` in its `library.yaml` after running the migration.
