@@ -36,6 +36,26 @@ clips:
     dialogue: ""
     visual_description: "[POV from inside San Francisco Muni bus looking out window at passing street. Yellow safety handrails visible. Transit journey B-roll.]"
 
+# Optional editorial directives (consumed by lib/buttercut/recipe.rb to emit
+# <name>.recipe.json alongside the XML). Clips are numbered 1..N by YAML order;
+# transitions and title_card reference clips by that numeric index.
+#
+# Per-clip directives go on the clip itself:
+#   speed_ramps: [{ at: 0.0, speed: 200, ease: ease-out }]
+#   color_tag: Orange
+#   markers: [{ at: 0.3, name: impact, color: Red }]
+#
+# Top-level directives below — uncomment and fill as needed:
+# transitions:
+#   - { between: [3, 4], type: dip_to_color, color: white, duration_frames: 4 }
+# title_card:
+#   at_clip: 12
+#   text: "{{user_handle}}"
+#   fade_in_at: 0.5
+#   fade_in_frames: 6
+# render_preset: { format: mp4, codec: h264, resolution: 1080p, bitrate_kbps: 25000 }
+# powergrade: { name: GymBlueOrange-v1, apply_to: all }
+
 # Rough cut metadata
 metadata:
   created_date: ""  # Will be populated when rough cut is created
