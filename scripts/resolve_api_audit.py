@@ -106,7 +106,7 @@ def probe_color_tag(ctx):
     if not item:
         return "skipped", "no clip on V1 to probe"
     if not hasattr(item, "ClearClipColor") or not hasattr(item, "SetClipColor"):
-        return "limited", "SetClipColor present but ClearClipColor missing"
+        return "limited", "SetClipColor / ClearClipColor missing"
     original = item.GetClipColor() if hasattr(item, "GetClipColor") else None
     set_ok = bool(item.SetClipColor("Orange"))
     restore_ok = True
