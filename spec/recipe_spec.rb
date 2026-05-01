@@ -155,6 +155,22 @@ RSpec.describe ButterCut::Recipe do
       expect { described_class.from_hash(bad) }.to raise_error(ArgumentError, /speed_ramps.*array/)
     end
 
+    it 'rejects null speed_ramps' do
+      bad = valid_hash.dup
+      bad["clips"] = [{ "index" => 1, "source_file" => "x.mp4", "speed_ramps" => nil }]
+      bad["transitions"] = []
+      bad.delete("title_card")
+      expect { described_class.from_hash(bad) }.to raise_error(ArgumentError, /speed_ramps.*array/)
+    end
+
+    it 'rejects null markers' do
+      bad = valid_hash.dup
+      bad["clips"] = [{ "index" => 1, "source_file" => "x.mp4", "markers" => nil }]
+      bad["transitions"] = []
+      bad.delete("title_card")
+      expect { described_class.from_hash(bad) }.to raise_error(ArgumentError, /markers.*array/)
+    end
+
     it 'rejects non-array markers' do
       bad = valid_hash.dup
       bad["clips"] = [{ "index" => 1, "source_file" => "x.mp4", "markers" => 1 }]

@@ -129,7 +129,7 @@ class ButterCut
       validate_positive_int!(clip["index"], "clip index")
       validate_string!(clip["source_file"], "clip source_file")
 
-      speed_ramps = clip["speed_ramps"] || []
+      speed_ramps = clip.key?("speed_ramps") ? clip["speed_ramps"] : []
       raise ArgumentError, "clip #{clip["index"]} speed_ramps must be an array" unless speed_ramps.is_a?(Array)
       speed_ramps.each { |ramp| validate_speed_ramp!(ramp, clip["index"]) }
 
@@ -137,7 +137,7 @@ class ButterCut
         raise ArgumentError, "clip #{clip["index"]} color_tag #{clip["color_tag"].inspect} not in #{CLIP_COLOR_TAGS.inspect}"
       end
 
-      markers = clip["markers"] || []
+      markers = clip.key?("markers") ? clip["markers"] : []
       raise ArgumentError, "clip #{clip["index"]} markers must be an array" unless markers.is_a?(Array)
       markers.each { |marker| validate_marker!(marker, clip["index"]) }
     end
