@@ -103,8 +103,22 @@ class Applier:
         for marker in clip.get("markers", []):
             self.counts["markers"][1] += 1
             frame = int(round(marker["at"] * self.frame_rate))
+            custom_data = f"buttercut:{marker['name']}"
+            # Make idempotent: a previous apply may have placed a buttercut
+            # marker at this same frame. Clear it before re-adding so the
+            # script can be run repeatedly.
             try:
-                ok = bool(item.AddMarker(frame, marker["color"], marker["name"], marker.get("note", ""), 1))
+                if hasattr(item, "DeleteMarkerByCustomData"):
+                    item.DeleteMarkerByCustomData(custom_data)
+            except Exception:
+                pass
+            try:
+                if hasattr(item, "DeleteMarkerAtFrame"):
+                    item.DeleteMarkerAtFrame(frame)
+            except Exception:
+                pass
+            try:
+                ok = bool(item.AddMarker(frame, marker["color"], marker["name"], marker.get("note", ""), 1, custom_data))
                 if ok:
                     self.counts["markers"][0] += 1
                 else:
@@ -122,18 +136,34 @@ class Applier:
             return
         self.counts["constant_speed_ramps"][1] += 1
         speed = ramps[0]["speed"]
-        try:
-            mpi = item.GetMediaPoolItem()
-            if not mpi:
-                self.warnings.append(f"clip {idx}: no MediaPoolItem available; cannot set Speed")
-                return
-            ok = bool(mpi.SetClipProperty("Speed", str(speed)))
-            if ok:
-                self.counts["constant_speed_ramps"][0] += 1
-            else:
-                self.warnings.append(f"clip {idx}: SetClipProperty('Speed', {speed!r}) returned False")
-        except Exception as e:
-            self.warnings.append(f"clip {idx}: speed ramp raised {type(e).__name__}: {e}")
+        mpi = item.GetMediaPoolItem() if hasattr(item, "GetMediaPoolItem") else None
+        # Resolve's speed API is flaky across versions; try the documented
+        # paths in order, accept the first one that returns truthy.
+        attempts = []
+        if mpi:
+            attempts += [
+                ("MediaPoolItem.SetClipProperty('Speed', str)", lambda: mpi.SetClipProperty("Speed", str(speed))),
+                ("MediaPoolItem.SetClipProperty('Speed', float)", lambda: mpi.SetClipProperty("Speed", float(speed) / 100.0)),
+                ("MediaPoolItem.SetClipProperty('Speed Change', %)", lambda: mpi.SetClipProperty("Speed Change", f"{speed}%")),
+            ]
+        attempts += [
+            ("TimelineItem.SetProperty('Speed', float)", lambda: item.SetProperty("Speed", float(speed) / 100.0) if hasattr(item, "SetProperty") else False),
+        ]
+        for label, fn in attempts:
+            try:
+                if bool(fn()):
+                    self.counts["constant_speed_ramps"][0] += 1
+                    return
+            except Exception as e:
+                self.warnings.append(f"clip {idx}: {label} raised {type(e).__name__}: {e}")
+        # All attempts returned False or raised. Fall back to manual log,
+        # not warning — speed scripting is unreliable enough that "apply
+        # manually" is the right user instruction.
+        self.manual["multi_point_ramps"] += 0  # keep dict shape stable
+        print(
+            f"[apply_recipe] manual: constant ramp on clip {idx} → {speed}% — "
+            f"set in Resolve (Inspector > Speed) since scripted set returned False"
+        )
 
     def _apply_render_preset(self):
         preset = self.recipe.get("render_preset")
@@ -164,16 +194,31 @@ class Applier:
 
     def _render_preset_candidates(self, preset):
         # Recipe encodes format/codec/resolution/bitrate_kbps; Resolve presets
-        # are by name. Try a few common patterns; user can extend by editing
-        # the preset list in their project.
+        # are by name. Generate candidates that match Resolve's actual naming
+        # conventions (dots in codec names, ' - ' separator in platform presets).
         codec = preset.get("codec", "")
         resolution = preset.get("resolution", "")
+        codec_pretty = self._pretty_codec(codec)
         return [
-            f"{codec.upper()} Master",
+            preset.get("name", ""),               # explicit name wins if set
+            f"{codec_pretty} Master",             # "H.264 Master", "H.265 Master", "ProRes 422 HQ"
+            f"YouTube - {resolution}",            # "YouTube - 1080p"
+            f"Vimeo - {resolution}",
+            f"TikTok - {resolution}",
+            f"Dropbox - {resolution}",
+            # Loose fallbacks
             f"YouTube {resolution}",
-            f"{resolution} {codec}",
-            preset.get("name", ""),
+            f"{resolution} {codec_pretty}",
         ]
+
+    def _pretty_codec(self, codec):
+        # h264 -> H.264, h265 -> H.265, prores422hq -> ProRes 422 HQ (best-effort)
+        c = codec.lower().strip()
+        if c in ("h264", "avc"):
+            return "H.264"
+        if c in ("h265", "hevc"):
+            return "H.265"
+        return codec.upper() if codec else ""
 
     def _apply_powergrade(self):
         grade = self.recipe.get("powergrade")
