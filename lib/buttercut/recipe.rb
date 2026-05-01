@@ -32,7 +32,7 @@ class ButterCut
         clips: hash["clips"],
         render_preset: hash["render_preset"],
         powergrade: hash["powergrade"],
-        transitions: hash["transitions"] || [],
+        transitions: hash.key?("transitions") ? hash["transitions"] : [],
         title_card: hash["title_card"]
       )
     end
