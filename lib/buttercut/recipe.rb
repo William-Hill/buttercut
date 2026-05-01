@@ -109,10 +109,19 @@ class ButterCut
       raise ArgumentError, "clips must be a non-empty array" unless @clips.is_a?(Array) && !@clips.empty?
 
       @clips.each { |clip| validate_clip!(clip) }
+
+      duplicates = clip_indices.tally.select { |_, count| count > 1 }.keys
+      unless duplicates.empty?
+        raise ArgumentError, "clip indices must be unique, duplicates: #{duplicates.inspect}"
+      end
     end
 
     def clip_indices
       @clip_indices ||= @clips.map { |c| c["index"] }
+    end
+
+    def clip_positions
+      @clip_positions ||= @clips.each_with_index.to_h { |clip, pos| [clip["index"], pos] }
     end
 
     def validate_clip!(clip)
@@ -120,13 +129,17 @@ class ButterCut
       validate_positive_int!(clip["index"], "clip index")
       validate_string!(clip["source_file"], "clip source_file")
 
-      (clip["speed_ramps"] || []).each { |ramp| validate_speed_ramp!(ramp, clip["index"]) }
+      speed_ramps = clip["speed_ramps"] || []
+      raise ArgumentError, "clip #{clip["index"]} speed_ramps must be an array" unless speed_ramps.is_a?(Array)
+      speed_ramps.each { |ramp| validate_speed_ramp!(ramp, clip["index"]) }
 
       if clip.key?("color_tag") && !CLIP_COLOR_TAGS.include?(clip["color_tag"])
         raise ArgumentError, "clip #{clip["index"]} color_tag #{clip["color_tag"].inspect} not in #{CLIP_COLOR_TAGS.inspect}"
       end
 
-      (clip["markers"] || []).each { |marker| validate_marker!(marker, clip["index"]) }
+      markers = clip["markers"] || []
+      raise ArgumentError, "clip #{clip["index"]} markers must be an array" unless markers.is_a?(Array)
+      markers.each { |marker| validate_marker!(marker, clip["index"]) }
     end
 
     def validate_speed_ramp!(ramp, clip_index)
@@ -195,8 +208,8 @@ class ButterCut
         missing = [a, b].reject { |i| clip_indices.include?(i) }
         raise ArgumentError, "transition between references unknown clip index #{missing.first}"
       end
-      unless b == a + 1
-        raise ArgumentError, "transition between #{between.inspect} must be adjacent (b == a + 1)"
+      unless clip_positions[b] == clip_positions[a] + 1
+        raise ArgumentError, "transition between #{between.inspect} must reference adjacent clips in recipe order"
       end
 
       unless TRANSITION_TYPES.include?(t["type"])

@@ -133,6 +133,37 @@ RSpec.describe ButterCut::Recipe do
     end
   end
 
+  describe 'duplicate clip indices' do
+    it 'rejects clips with duplicate index values' do
+      bad = valid_hash.dup
+      bad["clips"] = [
+        { "index" => 1, "source_file" => "a.mp4" },
+        { "index" => 1, "source_file" => "b.mp4" }
+      ]
+      bad["transitions"] = []
+      bad.delete("title_card")
+      expect { described_class.from_hash(bad) }.to raise_error(ArgumentError, /duplicate/i)
+    end
+  end
+
+  describe 'array-typed fields on clips' do
+    it 'rejects non-array speed_ramps' do
+      bad = valid_hash.dup
+      bad["clips"] = [{ "index" => 1, "source_file" => "x.mp4", "speed_ramps" => "fast" }]
+      bad["transitions"] = []
+      bad.delete("title_card")
+      expect { described_class.from_hash(bad) }.to raise_error(ArgumentError, /speed_ramps.*array/)
+    end
+
+    it 'rejects non-array markers' do
+      bad = valid_hash.dup
+      bad["clips"] = [{ "index" => 1, "source_file" => "x.mp4", "markers" => 1 }]
+      bad["transitions"] = []
+      bad.delete("title_card")
+      expect { described_class.from_hash(bad) }.to raise_error(ArgumentError, /markers.*array/)
+    end
+  end
+
   describe 'speed_ramp validation' do
     it 'rejects speed of 0' do
       bad = valid_hash.dup

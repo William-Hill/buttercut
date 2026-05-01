@@ -23,7 +23,7 @@ The recipe + apply-script architecture closes that loop. ButterCut already knows
 
 ## Architecture
 
-```
+```text
 ButterCut roughcut skill
   ├── highlight-reel_<ts>.yaml         (existing)
   ├── highlight-reel_<ts>.xml          (existing — Resolve xmeml v5)
@@ -123,7 +123,7 @@ Manual finishing: pick music, drop SFX onto markers, write title card text, rend
 ## Branch / worktree setup
 
 ```bash
-cd /Users/william-meroxa/Development/buttercut
+cd /path/to/buttercut
 git checkout -b sprint/editorial-automation
 # or use a worktree to keep main clean for ad-hoc edits:
 git worktree add ../buttercut-sprint-01 sprint/editorial-automation
