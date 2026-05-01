@@ -66,8 +66,9 @@ def main
     source_file = clip['source_file']
 
     unless video_paths[source_file]
-      puts "Warning: Source file not found in library data: #{source_file}"
-      next
+      warn "Error: Source file not found in library data: #{source_file}"
+      warn "Refusing to export — silently skipping a clip would break recipe.json clip indices."
+      exit 1
     end
 
     full_path = video_paths[source_file]
@@ -106,7 +107,7 @@ def main
 
   validate_fcpxml(output_path) if editor_symbol == :fcpx
 
-  recipe_path = output_path.sub(/\.[^.]+\z/, '.recipe.json')
+  recipe_path = output_path.sub(/\.[^.]+\z/, '') + '.recipe.json'
   timeline_name = File.basename(roughcut_path, File.extname(roughcut_path))
   RecipeFromRoughcut.export(
     roughcut_path: roughcut_path,
