@@ -11,9 +11,10 @@ Run from inside Resolve via:
 
 Open the Console (Workspace > Console) before running so you can see the matrix.
 
-The probe is non-destructive: it adds one disposable marker to the current
-timeline (if any) and removes it on success. It does NOT modify clip color tags
-or save the project. It writes the result matrix to:
+The probe is non-destructive: it adds one disposable marker to an unused frame
+on the current timeline (if any) and removes it; it temporarily sets the first
+clip's color tag and restores the original value before exiting. It does NOT
+save the project. It writes the result matrix to:
   ~/buttercut_resolve_audit.json
 
 Paste that file back into the Phase 3 audit memo to finalize verdicts.
@@ -81,10 +82,23 @@ def probe_speed_ramp(ctx):
     item = ctx["first_clip"]
     if not item:
         return "skipped", "no clip on V1 to probe"
+    has_constant = hasattr(item, "GetClipProperty") and hasattr(item, "SetClipProperty")
     speed = item.GetClipProperty("Speed") if hasattr(item, "GetClipProperty") else None
-    has_retime = hasattr(item, "GetProperty") or hasattr(item, "SetClipProperty")
-    return ("yes" if speed is not None and has_retime else "limited",
-            f"GetClipProperty('Speed')={speed!r}; retime curve API on TimelineItem: {has_retime}")
+    # Look specifically for retime-curve / time-effect methods. Generic
+    # SetProperty/GetProperty don't count — they exist on builds where curve
+    # editing is unavailable.
+    ramp_methods = [
+        attr for attr in dir(item)
+        if any(needle in attr.lower() for needle in ("retime", "speedchange", "speedpoint", "timeeffect"))
+    ]
+    if ramp_methods:
+        return "yes", f"constant-speed via SetClipProperty('Speed') ({speed!r}); ramp methods: {ramp_methods}"
+    if has_constant:
+        return "limited", (
+            f"only constant speed via SetClipProperty('Speed') ({speed!r}); "
+            f"no retime/speedpoint/timeeffect methods on TimelineItem — multi-point ramps not in public API"
+        )
+    return "no", "no SetClipProperty on TimelineItem"
 
 
 def probe_color_tag(ctx):
@@ -94,16 +108,21 @@ def probe_color_tag(ctx):
     if not hasattr(item, "ClearClipColor") or not hasattr(item, "SetClipColor"):
         return "limited", "SetClipColor present but ClearClipColor missing"
     original = item.GetClipColor() if hasattr(item, "GetClipColor") else None
-    set_ok = item.SetClipColor("Orange")
-    if original:
-        item.SetClipColor(original)
-    else:
-        try:
-            item.ClearClipColor()
-        except Exception:
-            pass
+    set_ok = bool(item.SetClipColor("Orange"))
+    restore_ok = True
+    restore_err = None
+    try:
+        if original:
+            restore_ok = bool(item.SetClipColor(original))
+        else:
+            restore_ok = bool(item.ClearClipColor())
+    except Exception as e:
+        restore_ok = False
+        restore_err = f"{type(e).__name__}: {e}"
+    if set_ok and not restore_ok:
+        return "error", f"SetClipColor succeeded but restore failed ({restore_err or 'returned False'})"
     return ("yes" if set_ok else "no",
-            f"SetClipColor returned {set_ok!r}; original={original!r}")
+            f"SetClipColor returned {set_ok!r}; original={original!r}; restored={restore_ok!r}")
 
 
 def probe_marker(ctx):
@@ -111,49 +130,61 @@ def probe_marker(ctx):
     if not item:
         return "skipped", "no clip on V1 to probe"
     if not hasattr(item, "AddMarker") or not hasattr(item, "DeleteMarkerAtFrame"):
-        return "limited", "AddMarker present, DeleteMarkerAtFrame missing"
+        return "limited", "AddMarker / DeleteMarkerAtFrame missing"
+    if not hasattr(item, "GetMarkers"):
+        return "limited", "GetMarkers unavailable; skipping write probe to avoid colliding with existing markers"
+    existing = item.GetMarkers() or {}
+    used_frames = set()
+    for k in existing.keys():
+        try:
+            used_frames.add(int(k))
+        except Exception:
+            continue
     frame = 1
+    while frame in used_frames:
+        frame += 1
     added = item.AddMarker(frame, "Red", "buttercut_audit_probe", "buttercut audit", 1)
     if added:
         try:
-            item.DeleteMarkerAtFrame(frame)
-        except Exception:
-            pass
+            deleted = item.DeleteMarkerAtFrame(frame)
+            if not deleted:
+                return "error", f"AddMarker succeeded at frame {frame}, but DeleteMarkerAtFrame returned False"
+        except Exception as e:
+            return "error", f"AddMarker succeeded at frame {frame}, cleanup threw {type(e).__name__}: {e}"
     return ("yes" if added else "no",
-            f"AddMarker returned {added!r}; cleanup attempted")
+            f"AddMarker at frame {frame} returned {added!r}")
 
 
 def probe_powergrade(ctx):
     project = ctx["project"]
-    media_pool = project.GetMediaPool() if project and hasattr(project, "GetMediaPool") else None
     gallery = project.GetGallery() if project and hasattr(project, "GetGallery") else None
     if not gallery:
         return "limited", "Project.GetGallery() not available; PowerGrade-by-name not directly scriptable"
+    has_albums_api = hasattr(gallery, "GetGalleryStillAlbums") and hasattr(gallery, "GetCurrentStillAlbum")
+    if not has_albums_api:
+        return "limited", "Gallery present but album-walk API missing (no GetGalleryStillAlbums / GetCurrentStillAlbum)"
     albums = []
     try:
         albums = gallery.GetGalleryStillAlbums() or []
-    except Exception:
-        pass
-    has_apply = hasattr(gallery, "GetCurrentStillAlbum") and any(
-        hasattr(a, "GetStills") for a in albums
-    )
+    except Exception as e:
+        return "limited", f"GetGalleryStillAlbums raised {type(e).__name__}: {e}"
     album_names = [a.GetLabel() if hasattr(a, "GetLabel") else "?" for a in albums]
-    return ("limited" if has_apply else "no",
-            f"GalleryStillAlbums={album_names}; apply path requires gallery still walk, no direct ApplyPowerGradeByName()")
+    return ("limited",
+            f"album-walk API present (no direct ApplyPowerGradeByName); albums={album_names or '[]'}")
 
 
 def probe_render_preset(ctx):
     project = ctx["project"]
     if not project:
         return "skipped", "no project open"
-    presets = []
-    try:
-        presets = project.GetRenderPresetList() or []
-    except Exception:
-        pass
     has_load = hasattr(project, "LoadRenderPreset") and hasattr(project, "SetCurrentRenderMode")
-    return ("yes" if presets and has_load else "limited",
-            f"presets={len(presets)}; LoadRenderPreset+SetCurrentRenderMode={has_load}")
+    preset_count = None
+    try:
+        preset_count = len(project.GetRenderPresetList() or [])
+    except Exception:
+        preset_count = None
+    return ("yes" if has_load else "no",
+            f"LoadRenderPreset+SetCurrentRenderMode={has_load}; saved preset count={preset_count} (info only — verdict is API-driven)")
 
 
 def probe_transitions(ctx):
