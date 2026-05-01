@@ -1,0 +1,118 @@
+# Highlight Reel Template (parameterized)
+#
+# This is a structural template for a ~30s highlight reel rough cut. ButterCut
+# fills in the source_file, in_point, and out_point fields by selecting the
+# strongest clips per the criteria in templates/highlight_reel_recipe.md.
+#
+# The role field is internal — it tells ButterCut what kind of clip belongs at
+# that timeline position. It does NOT appear in the final cut YAML produced for
+# export; it's used only during clip selection.
+
+description: "{{description}}"   # filled by ButterCut from the user request
+
+notes: |
+  Editorial approach (per highlight_reel_recipe.md):
+  - Opener establishes motion + tone
+  - Two energy blocks separated by a breath beat
+  - Build into a held hero closer
+  - All stylistic preferences (through-rack/bag, bokeh, rear/mirror) prioritized
+
+clips:
+  # Opener (2.0–3.0s) — wide kinetic motion shot
+  - role: opener
+    target_duration: 2.5
+    selection_criteria: "wide shot, kinetic motion, establishes subject and setting"
+    source_file:
+    in_point:
+    out_point:
+    visual_description:
+
+  # Energy block A — 4 clips alternating two contrasting actions (1.5–2.5s each)
+  - role: energy_a_1
+    target_duration: 2.5
+    selection_criteria: "high-energy action #1, prefer through-frame composition (rack/bag/bokeh)"
+    source_file:
+    in_point:
+    out_point:
+    visual_description:
+
+  - role: energy_a_2
+    target_duration: 2.0
+    selection_criteria: "contrasting action #2, rapid pace"
+    source_file:
+    in_point:
+    out_point:
+    visual_description:
+
+  - role: energy_a_3
+    target_duration: 2.0
+    selection_criteria: "back to action #1, NEW angle (rear/mirror or new exercise)"
+    source_file:
+    in_point:
+    out_point:
+    visual_description:
+
+  - role: energy_a_4
+    target_duration: 2.5
+    selection_criteria: "action #2 variant, vary shot scale from energy_a_2"
+    source_file:
+    in_point:
+    out_point:
+    visual_description:
+
+  # Breath beat (2.0s) — quieter detail shot
+  - role: breath
+    target_duration: 2.0
+    selection_criteria: "side profile, detail, or reflection — calmer than surrounding clips"
+    source_file:
+    in_point:
+    out_point:
+    visual_description:
+
+  # Energy block B — 3 clips, new angles (1.5–2.5s each)
+  - role: energy_b_1
+    target_duration: 2.0
+    selection_criteria: "fresh action, ideally through-something composition"
+    source_file:
+    in_point:
+    out_point:
+    visual_description:
+
+  - role: energy_b_2
+    target_duration: 2.0
+    selection_criteria: "different angle/scale from energy_b_1"
+    source_file:
+    in_point:
+    out_point:
+    visual_description:
+
+  # Build inserts (1.5s each) — short, fast, sets up the closer
+  - role: build_1
+    target_duration: 1.5
+    selection_criteria: "fast cut suitable for 150-200% speed ramp; brief peak energy"
+    source_file:
+    in_point:
+    out_point:
+    visual_description:
+
+  - role: build_2
+    target_duration: 1.5
+    selection_criteria: "final accent before hero, prefers strike/peak/explosive moment"
+    source_file:
+    in_point:
+    out_point:
+    visual_description:
+
+  # Hero closer (3.0–5.0s) — held portrait/posed beat
+  - role: hero
+    target_duration: 3.0
+    selection_criteria: "subject centered, looking at camera or strong stance, posed/hero moment; ALWAYS the closer"
+    source_file:
+    in_point:
+    out_point:
+    visual_description:
+
+metadata:
+  template: "highlight_reel_template.yaml"
+  recipe: "highlight_reel_recipe.md"
+  target_total_duration: "00:00:30.00"
