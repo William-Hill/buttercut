@@ -65,8 +65,8 @@ Transitions are confirmed **not scriptable** on Resolve 20.2.3 free. Phase 3 tak
 
 | Recipe directive | Phase 3 path |
 |------------------|--------------|
-| Speed ramps (constant) | Apply via `MediaPoolItem.SetClipProperty("Speed", value)`, reached through `TimelineItem.GetMediaPoolItem()`. Single-value only — multi-point ramps in `recipe.speed_ramps` collapse to the highest non-100% value with a logged warning. |
-| Speed ramps (multi-point) | Not applied. Logged note per clip: `"Multi-point ramp on clip N — apply manually in Resolve retime curve."` Recipe still carries the points for Phase 4 / future. |
+| Speed ramps (constant) | Apply via `MediaPoolItem.SetClipProperty("Speed", value)`, reached through `TimelineItem.GetMediaPoolItem()`. Single-value only — applies a `recipe.speed_ramps` entry only when the clip has exactly one ramp point. |
+| Speed ramps (multi-point) | Out of scope. Recipe carries the points unchanged for Phase 4 / future; the apply script logs `"Multi-point ramp on clip N — apply manually in Resolve retime curve."` and applies nothing for that clip's ramp. |
 | Color tags | `TimelineItem.SetClipColor(tag)` — full support. |
 | Markers | `TimelineItem.AddMarker(frame, color, name, note, duration)` — full support. |
 | PowerGrade | Best-effort: walk `Gallery.GetGalleryStillAlbums()` for a still whose label matches `recipe.powergrade.name`, apply via still selection. If lookup fails, log `"PowerGrade '<name>' not found — apply manually."` and continue. |
