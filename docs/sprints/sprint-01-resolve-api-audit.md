@@ -1,6 +1,6 @@
 # Resolve Scripting API Audit (Sprint 1, Phase 3 prerequisite)
 
-**Status:** awaiting probe run · **Issue:** #3 · **Blocks:** #4 (Phase 3 apply script)
+**Status:** complete (probe run 2026-05-01 on Resolve 20.2.3.6 free) · **Issue:** #3 · **Blocks:** #4 (Phase 3 apply script)
 
 ## Background
 
@@ -41,41 +41,44 @@ These are the working assumptions going into the probe — to be confirmed or ov
 | `render_preset` | Yes           | `LoadRenderPreset(name)` and `SetCurrentRenderMode()` documented. `GetRenderPresetList()` enumerates. |
 | `transitions`   | No (likely)   | The Resolve scripting API has historically lacked any public method to insert a transition between clips. The probe enumerates `*transition*` attributes on `project` / `timeline` / `TimelineItem` — if none surface, this is confirmed. |
 
-## Verdict matrix (TODO — fill after running the probe)
+## Verdict matrix
 
-Paste the rows from `~/buttercut_resolve_audit.json` here once you've run the script.
+Probe environment:
+- Resolve product: **DaVinci Resolve** (free)
+- Resolve version: **20.2.3.6**
+- Probe run: 2026-05-01
 
 | Capability      | API present | Probe result | Notes |
 |-----------------|-------------|--------------|-------|
-| `speed_ramps`   | TBD         | TBD          | TBD   |
-| `color_tags`    | TBD         | TBD          | TBD   |
-| `markers`       | TBD         | TBD          | TBD   |
-| `powergrade`    | TBD         | TBD          | TBD   |
-| `render_preset` | TBD         | TBD          | TBD   |
-| `transitions`   | TBD         | TBD          | TBD   |
+| `speed_ramps`   | yes         | **error → limited** | `item.GetClipProperty("Speed")` raised `TypeError: 'NoneType' object is not callable` on `TimelineItem`. `GetClipProperty` is reliably available on `MediaPoolItem` (reach it via `TimelineItem.GetMediaPoolItem()`); multi-point retime curves still not in the public API. |
+| `color_tags`    | yes         | **yes**             | `SetClipColor` round-trip succeeded; restoration verified. |
+| `markers`       | yes         | **yes**             | `AddMarker(frame=1, "Red", ...)` returned True; cleanup succeeded. |
+| `powergrade`    | yes         | **limited**         | Gallery + `GetGalleryStillAlbums` + `GetCurrentStillAlbum` all present; one album returned with `None` label. No direct `ApplyPowerGradeByName` — must walk stills. |
+| `render_preset` | yes         | **yes**             | `LoadRenderPreset` + `SetCurrentRenderMode` both present and callable. 24 saved presets visible. |
+| `transitions`   | no          | **no**              | No `*transition*` attributes on `Project`, `Timeline`, or `TimelineItem`. Confirms the long-standing gap. |
 
-Probe environment:
-- Resolve product: TBD
-- Resolve version: TBD
-- Free or Studio: TBD
+## Phase 3 implications
 
-## Phase 3 implications (TODO — finalize after verdict matrix)
+Transitions are confirmed **not scriptable** on Resolve 20.2.3 free. Phase 3 takes the second branch:
 
-Two branches depending on the `transitions` verdict.
+**Phase 3 scope (locked):**
 
-**If transitions are scriptable:**
-- Phase 3 keeps the originally planned scope: speed ramps + color tags + markers + render preset + PowerGrade (best-effort) + transitions.
-- Recipe schema unchanged.
+| Recipe directive | Phase 3 path |
+|------------------|--------------|
+| Speed ramps (constant) | Apply via `MediaPoolItem.SetClipProperty("Speed", value)`, reached through `TimelineItem.GetMediaPoolItem()`. Single-value only — multi-point ramps in `recipe.speed_ramps` collapse to the highest non-100% value with a logged warning. |
+| Speed ramps (multi-point) | Not applied. Logged note per clip: `"Multi-point ramp on clip N — apply manually in Resolve retime curve."` Recipe still carries the points for Phase 4 / future. |
+| Color tags | `TimelineItem.SetClipColor(tag)` — full support. |
+| Markers | `TimelineItem.AddMarker(frame, color, name, note, duration)` — full support. |
+| PowerGrade | Best-effort: walk `Gallery.GetGalleryStillAlbums()` for a still whose label matches `recipe.powergrade.name`, apply via still selection. If lookup fails, log `"PowerGrade '<name>' not found — apply manually."` and continue. |
+| Render preset | `Project.LoadRenderPreset(name)` + `Project.SetCurrentRenderMode()` — full support. |
+| Transitions | **Not applied.** Logged per transition: `"Phase 4 (FCPXML 1.10) or manual: <type> between clip N and N+1."` Recipe still carries the directives. |
+| Title card | Not applied (no scripted text generator API surfaced). Logged as manual. |
 
-**If transitions are not scriptable on free Resolve:**
-- Phase 3 ships everything *except* transitions. The recipe.json still carries the directives — they just won't be applied automatically.
-- The apply script logs a one-line note per transition: "Phase 4 (FCPXML 1.10) or manual: <type> between clip N and N+1".
-- Phase 4 (FCPXML 1.10 backend, currently optional) becomes the realistic path for transitions, since Resolve's FCPXML import is more permissive than Resolve's xmeml import.
+**Phase 4 (FCPXML 1.10) becomes recommended, not optional** — it's the realistic path for transitions on Resolve. Speed ramps may also survive better through the FCPXML round-trip than through the apply script.
 
-**For PowerGrade specifically** — even if the gallery-still walk is technically possible, the implementation cost may exceed the value. A documented one-click manual step ("right-click hero clip → Apply Grade > GymBlueOrange-v1") is acceptable for Phase 3 if the gallery API path turns out brittle. Decision deferred to verdict review.
+**One follow-up against the probe itself:** the `speed_ramps` `TypeError` confirms `TimelineItem.GetClipProperty` is unreliable in 20.2.3. Phase 3's apply script must reach `Speed` via `MediaPoolItem`. The probe could be tightened in a future iteration to test that path directly — not blocking Phase 3.
 
 ## Next steps
 
-1. Run the probe; paste results into the verdict matrix.
-2. Settle the transitions branch above.
-3. Open #4 (Phase 3 apply script) with finalized scope based on this memo.
+1. Open #4 (Phase 3 apply script) with the locked scope above.
+2. Promote #5 (Phase 4 / FCPXML 1.10) from optional to recommended.
