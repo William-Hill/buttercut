@@ -4,6 +4,7 @@
 require 'date'
 require 'yaml'
 require 'buttercut'
+require_relative 'recipe_from_roughcut'
 
 def timecode_to_seconds(timecode)
   # Convert HH:MM:SS or HH:MM:SS.s to seconds (supports decimal seconds)
@@ -65,8 +66,9 @@ def main
     source_file = clip['source_file']
 
     unless video_paths[source_file]
-      puts "Warning: Source file not found in library data: #{source_file}"
-      next
+      warn "Error: Source file not found in library data: #{source_file}"
+      warn "Refusing to export — silently skipping a clip would break recipe.json clip indices."
+      exit 1
     end
 
     full_path = video_paths[source_file]
@@ -104,6 +106,16 @@ def main
   puts "\n✓ Rough cut exported to: #{output_path}"
 
   validate_fcpxml(output_path) if editor_symbol == :fcpx
+
+  recipe_path = output_path.sub(/\.[^.]+\z/, '') + '.recipe.json'
+  timeline_name = File.basename(roughcut_path, File.extname(roughcut_path))
+  RecipeFromRoughcut.export(
+    roughcut_path: roughcut_path,
+    recipe_path: recipe_path,
+    library_name: library_name,
+    timeline_name: timeline_name
+  )
+  puts "✓ Recipe exported to: #{recipe_path}"
 end
 
 def validate_fcpxml(xml_path)

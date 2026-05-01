@@ -80,6 +80,53 @@ Each clip needs:
 - `created_date`: `YYYY-MM-DD HH:MM:SS`
 - `total_duration`: Sum of all clips in `HH:MM:SS.ss` format
 
+### 4b. Capture Editorial Directives (during clip selection, NOT as a post-pass)
+
+While picking clips, also capture the editorial reasoning you're already doing — speed ramps, color tags, markers, transitions, title cards — into the same YAML. The exporter will turn this into a `.recipe.json` that a Resolve apply script consumes after import.
+
+Clips are referenced by their **1-based position in the `clips:` list** (assigned automatically — you don't write the index field).
+
+**Per-clip directives** (add directly to the clip):
+
+```yaml
+- source_file: medicine-ball-slams.mp4
+  in_point: "00:00:01.50"
+  out_point: "00:00:04.00"
+  dialogue: ""
+  visual_description: "..."
+  speed_ramps:
+    - { at: 0.0, speed: 200, ease: ease-out }   # ramp to 200% over the slam
+    - { at: 1.0, speed: 100, ease: ease-in }
+  color_tag: Orange                              # Resolve clip color tag
+  markers:
+    - { at: 0.3, name: impact, color: Red }      # SFX hook for the editor
+```
+
+**Top-level directives** (siblings of `clips:`):
+
+```yaml
+transitions:
+  - { between: [3, 4], type: dip_to_color, color: black, duration_frames: 4 }
+  - { between: [11, 12], type: dip_to_color, color: white, duration_frames: 4 }
+title_card:
+  at_clip: 12
+  text: "{{user_handle}}"
+  fade_in_at: 0.5
+  fade_in_frames: 6
+render_preset: { format: mp4, codec: h264, resolution: 1080p, bitrate_kbps: 25000 }
+powergrade: { name: GymBlueOrange-v1, apply_to: all }
+```
+
+**Allowed values** (validated at export — invalid values fail the export):
+
+- `ease`: `linear`, `ease-in`, `ease-out`, `ease-in-out`
+- `color_tag` (Resolve clip colors): `Orange`, `Apricot`, `Yellow`, `Lime`, `Olive`, `Green`, `Teal`, `Navy`, `Blue`, `Purple`, `Violet`, `Pink`, `Tan`, `Beige`, `Brown`, `Chocolate`
+- marker `color` (Resolve marker colors): `Blue`, `Cyan`, `Green`, `Yellow`, `Red`, `Pink`, `Purple`, `Fuchsia`, `Rose`, `Lavender`, `Sky`, `Mint`, `Lemon`, `Sand`, `Cocoa`, `Cream`
+- transition `type`: `dip_to_color` (requires `color: black|white`) or `cross_dissolve`
+- `transitions[*].between`: must reference adjacent clips in YAML order
+
+If you have no editorial directives for a clip or the cut as a whole, omit the fields — they're all optional. The recipe is still emitted with the clips alone.
+
 ### 5. Export to Video Editor
 
 Check `library.yaml` for the `editor` field. If it's set, use that value. If it's not set or empty, check `libraries/settings.yaml` for the default `editor` value and use that (also save it back to `library.yaml`). If neither has an editor set, ask the user for their editor choice (Final Cut Pro X, Adobe Premiere Pro, or DaVinci Resolve), then save their choice back to both `library.yaml` and `libraries/settings.yaml`.
@@ -105,5 +152,7 @@ Run the `backup-library` skill to preserve the completed work.
 Provide summary with:
 - Rough cut name and duration
 - Number of clips included
-- File path for XML
+- File paths for XML and recipe.json
 - Backup confirmation
+
+The exporter writes `<roughcut>.recipe.json` next to the XML automatically — no separate command needed.
