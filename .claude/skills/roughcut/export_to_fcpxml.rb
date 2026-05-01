@@ -5,6 +5,7 @@ require 'date'
 require 'yaml'
 require 'buttercut'
 require_relative 'recipe_from_roughcut'
+require_relative 'generate_apply_script'
 
 def timecode_to_seconds(timecode)
   # Convert HH:MM:SS or HH:MM:SS.s to seconds (supports decimal seconds)
@@ -116,6 +117,10 @@ def main
     timeline_name: timeline_name
   )
   puts "✓ Recipe exported to: #{recipe_path}"
+
+  apply_path = output_path.sub(/\.[^.]+\z/, '') + '_apply.py'
+  GenerateApplyScript.generate(recipe_path: recipe_path, output_path: apply_path)
+  puts "✓ Apply script generated: #{apply_path}"
 end
 
 def validate_fcpxml(xml_path)
