@@ -50,16 +50,16 @@ Probe environment:
 
 | Capability      | API present | Probe result | Notes |
 |-----------------|-------------|--------------|-------|
-| `speed_ramps`   | yes         | **error → limited** | `item.GetClipProperty("Speed")` raised `TypeError: 'NoneType' object is not callable` on `TimelineItem`. `GetClipProperty` is reliably available on `MediaPoolItem` (reach it via `TimelineItem.GetMediaPoolItem()`); multi-point retime curves still not in the public API. |
+| `speed_ramps`   | yes         | **error → limited** | Calling `TimelineItem.GetClipProperty("Speed")` raised `TypeError: 'NoneType' object is not callable` in 20.2.3.6 free. The supported automated path is `MediaPoolItem.GetClipProperty("Speed")` / `SetClipProperty(...)`, reached via `TimelineItem.GetMediaPoolItem()`; multi-point retime curves still not in the public API. |
 | `color_tags`    | yes         | **yes**             | `SetClipColor` round-trip succeeded; restoration verified. |
 | `markers`       | yes         | **yes**             | `AddMarker(frame=1, "Red", ...)` returned True; cleanup succeeded. |
 | `powergrade`    | yes         | **limited**         | Gallery + `GetGalleryStillAlbums` + `GetCurrentStillAlbum` all present; one album returned with `None` label. No direct `ApplyPowerGradeByName` — must walk stills. |
 | `render_preset` | yes         | **yes**             | `LoadRenderPreset` + `SetCurrentRenderMode` both present and callable. 24 saved presets visible. |
-| `transitions`   | no          | **no**              | No `*transition*` attributes on `Project`, `Timeline`, or `TimelineItem`. Confirms the long-standing gap. |
+| `transitions`   | no          | **no**              | Probe found no `*transition*`-named attributes on `Project`, `Timeline`, or `TimelineItem` via its attribute/membership scan. Strong enough evidence to treat transitions as non-scriptable for Phase 3, even if a non-obviously-named method exists. |
 
 ## Phase 3 implications
 
-Transitions are confirmed **not scriptable** on Resolve 20.2.3 free. Phase 3 takes the second branch:
+Transitions are **not surfaced by the probe's scan** on Resolve 20.2.3 free, and on the strength of that evidence Phase 3 treats them as non-scriptable. Phase 3 takes the second branch:
 
 **Phase 3 scope (locked):**
 
