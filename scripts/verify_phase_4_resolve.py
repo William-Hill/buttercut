@@ -41,13 +41,14 @@ def normalize_speed(speed):
     s = str(speed).strip()
     if not s or s.startswith("<error:"):
         return None
-    if s.endswith("%"):
+    had_percent = s.endswith("%")
+    if had_percent:
         s = s[:-1].strip()
     try:
         v = float(s)
     except ValueError:
         return None
-    return v / 100.0 if v > 2 else v
+    return v / 100.0 if had_percent or v > 2 else v
 
 
 def get_resolve():
