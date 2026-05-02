@@ -96,13 +96,14 @@ def main():
                 except Exception as e:  # noqa: BLE001
                     speed = f"<error: {e}>"
             normalized = normalize_speed(speed)
+            appears_retimed = (
+                None if normalized is None else abs(normalized - 1.0) > 1e-6
+            )
             rows.append({
                 "track": f"V{track_idx}",
                 "name": ti.GetName(),
                 "media_pool_speed": speed,
-                "appears_retimed": (
-                    normalized is not None and abs(normalized - 1.0) > 1e-6
-                ),
+                "appears_retimed": appears_retimed,
             })
 
     if not rows:
@@ -129,7 +130,9 @@ def main():
     print()
     print("Cross-check: open the source rough-cut YAML and find clips with a")
     print("'speed_ramps' entry. Those should appear above with appears_retimed=True.")
-    print("If a ramped clip shows Speed=1.0, the FCPXML timeMap did not survive.")
+    print("If a ramped clip's media_pool_speed reads as 100 (normal speed),")
+    print("the FCPXML timeMap did not survive. appears_retimed=None means")
+    print("Resolve returned no Speed value — verdict unknown for that clip.")
 
 
 if __name__ == "__main__":
