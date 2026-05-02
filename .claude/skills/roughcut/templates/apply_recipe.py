@@ -100,10 +100,12 @@ class Applier:
             self.warnings.append(f"clip {idx}: SetClipColor raised {type(e).__name__}: {e}")
 
     def _apply_markers(self, item, clip, idx):
-        for marker in clip.get("markers", []):
+        for marker_pos, marker in enumerate(clip.get("markers", []), start=1):
             self.counts["markers"][1] += 1
             frame = int(round(marker["at"] * self.frame_rate))
-            custom_data = f"buttercut:{marker['name']}"
+            # Disambiguate by clip index + marker position so duplicate names
+            # within the same clip don't overwrite each other on cleanup.
+            custom_data = f"buttercut:{idx}:{marker_pos}:{marker['name']}"
             # Make idempotent: a previous apply may have placed a buttercut
             # marker at this same frame. Clear it before re-adding so the
             # script can be run repeatedly.
