@@ -80,14 +80,23 @@ RSpec.describe ButterCut::FCPX, 'speed ramps via FCPXML 1.10 timeMap' do
     expect(interps).to include('linear', 'smooth2')
   end
 
-  it 'pads with a leading timept at output 0 when first ramp is mid-clip' do
+  it 'pads with a leading 100%-baseline timept at output 0 when first ramp is mid-clip' do
     ramps = [{ 'at' => 0.5, 'speed' => 200, 'ease' => 'linear' }]
     generator = ButterCut::FCPX.new([
       { path: clip_path, start_at: 0.0, duration: 2.0, speed_ramps: ramps }
     ])
     doc = parse(generator.to_xml)
     timepts = doc.xpath('//timeMap/timept')
-    expect(timepts.first['time']).to eq('0s')
     expect(timepts.length).to be >= 2
+
+    leading = timepts.first
+    expect(leading['time']).to eq('0s')
+    expect(leading['value']).to eq('0s')
+
+    # The leading→first-ramp segment integrates as the average of (100%, 200%)
+    # over 0.5s = 1.5x * 0.5s = 0.75s of source advance.
+    second = timepts[1]
+    expect(second['time']).to eq('1/2s')
+    expect(second['value']).to eq('3/4s')
   end
 end

@@ -126,9 +126,17 @@ def main
 end
 
 def validate_fcpxml(xml_path)
-  dtd_path = File.expand_path('../../../dtd/FCPXMLv1_10.dtd', __dir__)
-  unless File.exist?(dtd_path)
-    puts "⚠ DTD not found at #{dtd_path}; skipping validation."
+  dtd_v110 = File.expand_path('../../../dtd/FCPXMLv1_10.dtd', __dir__)
+  dtd_v18 = File.expand_path('../../../dtd/FCPXMLv1_8.dtd', __dir__)
+
+  if File.exist?(dtd_v110)
+    dtd_path = dtd_v110
+    dtd_label = "FCPXMLv1_10.dtd"
+  elsif File.exist?(dtd_v18)
+    dtd_path = dtd_v18
+    dtd_label = "FCPXMLv1_8.dtd (best-effort fallback for 1.10 output)"
+  else
+    puts "⚠ No FCPXML DTD found in dtd/; skipping validation."
     return
   end
 
@@ -140,9 +148,9 @@ def validate_fcpxml(xml_path)
   # xmllint prints errors to stderr; --noout suppresses the doc dump on success.
   output = `xmllint --noout --dtdvalid "#{dtd_path}" "#{xml_path}" 2>&1`
   if $?.success?
-    puts "✓ FCPXML validates against FCPXMLv1_8.dtd"
+    puts "✓ FCPXML validates against #{dtd_label}"
   else
-    warn "✗ FCPXML failed DTD validation:"
+    warn "✗ FCPXML failed DTD validation against #{dtd_label}:"
     warn output
     exit 1
   end

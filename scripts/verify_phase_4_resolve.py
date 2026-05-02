@@ -15,10 +15,12 @@ Prereq:
   2. Make sure the imported timeline is the Current Timeline.
   3. Open Workspace > Console so the report is visible.
 
-The probe is read-only. For each clip on V1 it reports:
+The probe is read-only. For each clip on every video track it reports:
+  - track (e.g. V1, V2)
   - clip name
-  - MediaPoolItem 'Speed' property (constant-speed indicator)
-  - whether the underlying MediaPoolItem appears retimed (Speed != 1.0)
+  - MediaPoolItem 'Speed' property (returned by Resolve as a percentage
+    string — e.g. "100" for normal speed, "400" for 4x)
+  - whether the underlying MediaPoolItem appears retimed (Speed != 100%)
 
 A clip whose recipe carried speed_ramps but reports Speed == 1.0 in Resolve
 indicates the timeMap did NOT survive import — Phase 4 acceptance not met for
@@ -29,6 +31,23 @@ import json
 import os
 
 OUT_PATH = os.path.expanduser("~/buttercut_phase4_verify.json")
+
+
+def normalize_speed(speed):
+    """Resolve returns Speed as a percentage string (e.g. '100' for normal,
+    '400' for 4x). Map to a unit-less factor so we can compare against 1.0."""
+    if speed is None:
+        return None
+    s = str(speed).strip()
+    if not s or s.startswith("<error:"):
+        return None
+    if s.endswith("%"):
+        s = s[:-1].strip()
+    try:
+        v = float(s)
+    except ValueError:
+        return None
+    return v / 100.0 if v > 2 else v
 
 
 def get_resolve():
@@ -76,11 +95,14 @@ def main():
                     speed = mpi.GetClipProperty("Speed")
                 except Exception as e:  # noqa: BLE001
                     speed = f"<error: {e}>"
+            normalized = normalize_speed(speed)
             rows.append({
                 "track": f"V{track_idx}",
                 "name": ti.GetName(),
                 "media_pool_speed": speed,
-                "appears_retimed": (speed not in (None, "1.0", 1.0, "")),
+                "appears_retimed": (
+                    normalized is not None and abs(normalized - 1.0) > 1e-6
+                ),
             })
 
     if not rows:
@@ -110,4 +132,5 @@ def main():
     print("If a ramped clip shows Speed=1.0, the FCPXML timeMap did not survive.")
 
 
-main()
+if __name__ == "__main__":
+    main()

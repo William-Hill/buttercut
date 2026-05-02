@@ -122,7 +122,7 @@ class ButterCut
         }
       end
 
-      waypoints.unshift({ at: Rational(0), speed: waypoints.first[:speed], interp: waypoints.first[:interp] }) if waypoints.first[:at] > 0
+      waypoints.unshift({ at: Rational(0), speed: Rational(1), interp: "linear" }) if waypoints.first[:at] > 0
       waypoints.push({ at: clip_duration, speed: waypoints.last[:speed], interp: waypoints.last[:interp] }) if waypoints.last[:at] < clip_duration
 
       points = []
