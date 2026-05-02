@@ -5,10 +5,15 @@ All notable changes to ButterCut will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.6.0] - 2026-05-02
+
+### Added
+- **Editorial recipe alongside the rough cut.** Every rough cut now exports an editorial recipe (`<name>.recipe.json`) capturing the agent's editorial intent: per-clip speed ramps, clip color tags, markers, between-clip transitions, an optional title card, render preset, and PowerGrade reference. The XML stays cuts-only; the recipe carries everything else. Schema is versioned and validated by `lib/buttercut/recipe.rb`.
+- **DaVinci Resolve apply script.** Each rough cut also generates `<name>_apply.py`, a Python script you drop into Resolve and run from `Workspace > Scripts > Edit > Apply <name>`. It walks the recipe and applies what Resolve's scripting API supports — speed ramps (single-point via `MediaPoolItem.SetClipProperty("Speed", …)`), clip color tags, markers, render preset, and a best-effort PowerGrade lookup. Multi-point ramps and transitions are logged as manual follow-ups. Companion audit doc at `docs/sprints/sprint-01-resolve-api-audit.md` documents the API gaps the script works around.
+- **FCPXML 1.10 backend with native speed ramps.** Recipe `speed_ramps` are emitted as `<timeMap>` / `<timept>` waypoints inside the `<asset-clip>`, so DaVinci Resolve preserves speed ramps on FCPXML import without needing the apply script. Easing values map to FCPXML `interp`: `linear` → `linear`; `ease-in` / `ease-out` / `ease-in-out` → `smooth2`. Transitions and color tags still flow through the recipe + apply script.
 
 ### Changed
-- **FCPXML output upgraded from 1.8 to 1.10.** When a roughcut clip carries `speed_ramps`, ButterCut now emits a `<timeMap>` with `<timept>` waypoints inside the `<asset-clip>`, so DaVinci Resolve preserves speed ramps on import without needing the apply script. Easing values map to FCPXML `interp`: `linear` → `linear`; `ease-in` / `ease-out` / `ease-in-out` → `smooth2`. Transitions and color tags are not yet emitted via FCPXML — those still flow through the recipe + apply script (or stay manual in Resolve).
+- **`fcpxml` version bumped from 1.8 to 1.10** in all FCPXML output. Existing fixtures and tests updated accordingly.
 
 ## [0.5.0] - 2026-04-24
 
