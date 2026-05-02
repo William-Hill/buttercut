@@ -77,11 +77,13 @@ def main
     out_point = timecode_to_seconds(clip['out_point'])
     duration = out_point - start_at
 
-    buttercut_clips << {
+    clip_entry = {
       path: full_path,
       start_at: start_at.to_f,
       duration: duration.to_f
     }
+    clip_entry[:speed_ramps] = clip['speed_ramps'] if clip['speed_ramps']
+    buttercut_clips << clip_entry
   end
 
   # Validate and normalize editor choice
@@ -124,7 +126,7 @@ def main
 end
 
 def validate_fcpxml(xml_path)
-  dtd_path = File.expand_path('../../../dtd/FCPXMLv1_8.dtd', __dir__)
+  dtd_path = File.expand_path('../../../dtd/FCPXMLv1_10.dtd', __dir__)
   unless File.exist?(dtd_path)
     puts "⚠ DTD not found at #{dtd_path}; skipping validation."
     return
