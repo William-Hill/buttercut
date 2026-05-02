@@ -202,12 +202,14 @@ class Applier:
             )
             return
         try:
-            if bool(self.project.LoadRenderPreset(match)):
-                self.project.SetCurrentRenderMode(0)
-                self.counts["render_preset"][0] += 1
-                print(f"[apply_recipe] loaded render preset: {match}")
-            else:
+            if not bool(self.project.LoadRenderPreset(match)):
                 self.warnings.append(f"render_preset: LoadRenderPreset({match!r}) returned False")
+                return
+            if not bool(self.project.SetCurrentRenderMode(0)):
+                self.warnings.append(f"render_preset: SetCurrentRenderMode(0) returned False after LoadRenderPreset({match!r})")
+                return
+            self.counts["render_preset"][0] += 1
+            print(f"[apply_recipe] loaded render preset: {match}")
         except Exception as e:
             self.warnings.append(f"render_preset: raised {type(e).__name__}: {e}")
 
