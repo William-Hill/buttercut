@@ -112,11 +112,21 @@ class Applier:
                     item.DeleteMarkerByCustomData(custom_data)
             except Exception:
                 pass
+            # Belt-and-braces: if a buttercut marker exists at the target
+            # frame but its customData doesn't match (e.g. an old run used a
+            # different name), remove it too — but ONLY when the marker's
+            # customData is recognizably ours. Don't touch user markers that
+            # happen to share the same frame.
             try:
-                if hasattr(item, "DeleteMarkerAtFrame"):
-                    item.DeleteMarkerAtFrame(frame)
-            except Exception:
-                pass
+                if hasattr(item, "GetMarkers") and hasattr(item, "DeleteMarkerAtFrame"):
+                    markers = item.GetMarkers() or {}
+                    existing = markers.get(frame) or markers.get(float(frame)) or markers.get(str(frame))
+                    if existing and str(existing.get("customData", "")).startswith("buttercut:"):
+                        item.DeleteMarkerAtFrame(frame)
+            except Exception as e:
+                self.warnings.append(
+                    f"clip {idx}: marker cleanup at frame {frame} raised {type(e).__name__}: {e}"
+                )
             try:
                 ok = bool(item.AddMarker(frame, marker["color"], marker["name"], marker.get("note", ""), 1, custom_data))
                 if ok:
