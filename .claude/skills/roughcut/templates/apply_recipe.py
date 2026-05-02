@@ -148,7 +148,12 @@ class Applier:
             return
         self.counts["constant_speed_ramps"][1] += 1
         speed = ramps[0]["speed"]
-        mpi = item.GetMediaPoolItem() if hasattr(item, "GetMediaPoolItem") else None
+        mpi = None
+        if hasattr(item, "GetMediaPoolItem"):
+            try:
+                mpi = item.GetMediaPoolItem()
+            except Exception as e:
+                self.warnings.append(f"clip {idx}: GetMediaPoolItem raised {type(e).__name__}: {e}")
         # Resolve's speed API is flaky across versions; try the documented
         # paths in order, accept the first one that returns truthy.
         attempts = []
