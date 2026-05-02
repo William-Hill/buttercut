@@ -147,12 +147,26 @@ bundle exec ./.claude/skills/roughcut/export_to_fcpxml.rb libraries/[library-nam
 
 Run the `backup-library` skill to preserve the completed work.
 
+### 6b. Surface the Apply Script to the User
+
+The exporter writes three artifacts next to each rough cut: `<name>.<ext>` (XML), `<name>.recipe.json`, and `<name>_apply.py`. Tell the user how to use the apply script:
+
+> "Once you've imported the XML in Resolve and the timeline is loaded, drop `<name>_apply.py` into Resolve's Edit scripts directory and run it from `Workspace > Scripts > Edit`. If the menu doesn't show your script, run it from the Console instead (`Workspace > Console`, switch to `Py3`):
+>
+> ```python
+> exec(open("<absolute path to _apply.py>", encoding="utf-8").read())
+> ```
+>
+> Resolve's Edit scripts directory: `~/Library/Application Support/Blackmagic Design/DaVinci Resolve/Fusion/Scripts/Edit/` (macOS)."
+
+The apply script handles: color tags, markers, render preset, constant speed ramps (single point), and best-effort PowerGrade detection. It logs (but doesn't apply): multi-point speed ramps, transitions, title cards — those are manual finishes per the Sprint 1 Phase 3 audit.
+
 ### 7. Report Results
 
 Provide summary with:
 - Rough cut name and duration
 - Number of clips included
-- File paths for XML and recipe.json
+- File paths for XML, recipe.json, and `_apply.py`
 - Backup confirmation
 
-The exporter writes `<roughcut>.recipe.json` next to the XML automatically — no separate command needed.
+The exporter writes all three artifacts automatically — no separate command needed.
