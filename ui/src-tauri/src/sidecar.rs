@@ -166,13 +166,19 @@ pub async fn call(method: &str, params: Value) -> Result<Value, SidecarError> {
     }
 
     let req = Request { jsonrpc: "2.0", id, method, params };
-    let mut line = serde_json::to_string(&req)?;
-    line.push('\n');
-
-    {
+    let send_result: Result<(), SidecarError> = async {
+        let mut line = serde_json::to_string(&req)?;
+        line.push('\n');
         let mut stdin = sidecar.stdin.lock().await;
         stdin.write_all(line.as_bytes()).await?;
         stdin.flush().await?;
+        Ok(())
+    }
+    .await;
+
+    if let Err(err) = send_result {
+        sidecar.pending.lock().await.remove(&id);
+        return Err(err);
     }
 
     match timeout(CALL_TIMEOUT, rx).await {

@@ -8,7 +8,11 @@ function pickRoute() {
   const hash = window.location.hash || "";
   const match = hash.match(/^#\/library\/(.+)$/);
   if (match) {
-    return <Library name={decodeURIComponent(match[1])} />;
+    try {
+      return <Library name={decodeURIComponent(match[1])} />;
+    } catch {
+      return <Projects />;
+    }
   }
   return <Projects />;
 }

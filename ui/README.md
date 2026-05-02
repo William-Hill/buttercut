@@ -4,7 +4,7 @@ A Tauri-based desktop shell over the existing ButterCut Ruby gem. M0 is read-onl
 
 ## Architecture
 
-```
+```text
 ┌─────────────────────────┐    invoke()     ┌─────────────────────┐    JSON-RPC over stdio    ┌────────────────────────┐
 │  React + Vite frontend  │ ───────────────▶│  Rust (Tauri core)  │ ─────────────────────────▶│  Ruby sidecar process  │
 │  (src/)                 │◀─────────────── │  (src-tauri/)       │ ◀───────────────────────── │  (sidecar/*.rb)        │
@@ -73,7 +73,7 @@ Outputs a `.app` bundle under `src-tauri/target/release/bundle/macos/`.
 
 ## Layout
 
-```
+```text
 ui/
 ├── src/                         React + TS frontend
 │   ├── routes/projects.tsx      Projects screen (library cards)

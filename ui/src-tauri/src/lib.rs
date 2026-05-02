@@ -1,5 +1,7 @@
 mod sidecar;
 
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 
 use serde_json::{json, Value};
@@ -14,7 +16,7 @@ async fn list_libraries() -> Result<Value, String> {
 
 #[tauri::command]
 async fn open_library_window(app: tauri::AppHandle, name: String) -> Result<(), String> {
-    let label = format!("library-{}", sanitize_label(&name));
+    let label = library_window_label(&name);
 
     if let Some(existing) = app.get_webview_window(&label) {
         existing.set_focus().map_err(|e| e.to_string())?;
@@ -30,6 +32,14 @@ async fn open_library_window(app: tauri::AppHandle, name: String) -> Result<(), 
         .map_err(|e| e.to_string())?;
 
     Ok(())
+}
+
+fn library_window_label(name: &str) -> String {
+    // Tauri labels accept only [A-Za-z0-9_-]. sanitize alone collapses distinct
+    // names ("A B", "A/B", "A?B" → "A_B"); a hash suffix keeps labels unique.
+    let mut hasher = DefaultHasher::new();
+    name.hash(&mut hasher);
+    format!("library-{}-{:x}", sanitize_label(name), hasher.finish())
 }
 
 fn sanitize_label(name: &str) -> String {

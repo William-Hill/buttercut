@@ -58,7 +58,8 @@ class ButtercutUiSidecar
   def list_libraries
     Pathname.glob(@libraries_root.join("*", "library.yaml")).filter_map do |yaml_path|
       summarize_library(yaml_path)
-    rescue Errno::ENOENT, Errno::EISDIR
+    rescue Errno::ENOENT, Errno::EISDIR, Psych::Exception, TypeError => e
+      warn "[sidecar] skipping #{yaml_path}: #{e.class}: #{e.message}"
       nil
     end.sort_by { |lib| -Time.parse(lib[:last_touched_at]).to_i }
   end
