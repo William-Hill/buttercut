@@ -3,6 +3,8 @@
 # the absolute recipe path. The result is fully self-contained and can be
 # dropped into Resolve's Edit scripts directory.
 
+require 'json'
+
 class GenerateApplyScript
   TEMPLATE_PATH = File.expand_path('templates/apply_recipe.py', __dir__)
   PLACEHOLDER = '{{RECIPE_PATH}}'.freeze
@@ -23,7 +25,14 @@ class GenerateApplyScript
     template = File.read(TEMPLATE_PATH)
     raise "template missing #{PLACEHOLDER}" unless template.include?(PLACEHOLDER)
 
-    stamped = template.sub(PLACEHOLDER, @recipe_path)
+    # JSON string syntax is a strict subset of Python string syntax (both use
+    # double quotes, both escape \ and " the same way, both handle unicode
+    # the same), so JSON.dump produces a valid Python string literal — quotes
+    # included. The template's placeholder appears unquoted for that reason.
+    # Use the block form of sub so backslashes in the replacement aren't
+    # interpreted as regex backreferences.
+    replacement = JSON.dump(@recipe_path)
+    stamped = template.sub(PLACEHOLDER) { replacement }
     File.write(@output_path, stamped)
     File.chmod(0o755, @output_path)
     @output_path

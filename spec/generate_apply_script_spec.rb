@@ -18,6 +18,33 @@ RSpec.describe GenerateApplyScript do
     end
   end
 
+  it 'JSON-escapes paths containing quotes or backslashes' do
+    # Simulate hostile path values without relying on the filesystem to allow
+    # them — we're testing the substitution, not Dir.mkdir.
+    instance = described_class.new(recipe_path: '/tmp/r.json', output_path: '/tmp/out.py')
+    instance.instance_variable_set(:@recipe_path, %(/tmp/name with "quote" and \\ backslash/r.json))
+
+    Dir.mktmpdir do |dir|
+      output_path = File.join(dir, 'out.py')
+      instance.instance_variable_set(:@output_path, output_path)
+      instance.generate
+
+      content = File.read(output_path)
+      stamped = content[/^RECIPE_PATH = .*/]
+      # Quote inside the path must be escaped as \"
+      expect(stamped).to include('\\"quote\\"')
+      # Backslash inside the path must be escaped as \\
+      expect(stamped).to include('and \\\\ backslash')
+      expect(content).not_to include('{{RECIPE_PATH}}')
+
+      # And the stamped line must be a valid Python string literal — eval it
+      # in Python and check it round-trips to the original path.
+      py = "import ast, sys; sys.stdout.write(ast.literal_eval(#{stamped.split('=', 2).last.strip.inspect}))"
+      result = `python3 -c #{py.shellescape}`
+      expect(result).to eq(%(/tmp/name with "quote" and \\ backslash/r.json))
+    end
+  end
+
   it 'produces an executable file' do
     Dir.mktmpdir do |dir|
       recipe_path = File.join(dir, 'r.json')
@@ -37,7 +64,7 @@ RSpec.describe GenerateApplyScript do
         described_class.generate(recipe_path: 'rel.recipe.json', output_path: 'out.py')
 
         content = File.read('out.py')
-        expect(content).to match(/RECIPE_PATH = "\/.+\/rel\.recipe\.json"/)
+        expect(content).to match(%r{RECIPE_PATH = "/.+/rel\.recipe\.json"})
       end
     end
   end

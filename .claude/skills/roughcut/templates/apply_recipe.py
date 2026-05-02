@@ -21,7 +21,7 @@ import sys
 import traceback
 
 
-RECIPE_PATH = "{{RECIPE_PATH}}"
+RECIPE_PATH = {{RECIPE_PATH}}
 
 
 def get_resolve():
@@ -48,7 +48,7 @@ class Applier:
             "render_preset": [0, 0],
             "powergrade": [0, 0],
         }
-        self.manual = {"transitions": 0, "multi_point_ramps": 0, "title_card": 0}
+        self.manual = {"transitions": 0, "multi_point_ramps": 0, "constant_speed_ramps": 0, "title_card": 0}
         self.warnings = []
 
     def apply(self):
@@ -159,7 +159,7 @@ class Applier:
         # All attempts returned False or raised. Fall back to manual log,
         # not warning — speed scripting is unreliable enough that "apply
         # manually" is the right user instruction.
-        self.manual["multi_point_ramps"] += 0  # keep dict shape stable
+        self.manual["constant_speed_ramps"] += 1
         print(
             f"[apply_recipe] manual: constant ramp on clip {idx} → {speed}% — "
             f"set in Resolve (Inspector > Speed) since scripted set returned False"
