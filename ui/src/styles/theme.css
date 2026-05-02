@@ -1,0 +1,62 @@
+@import "@fontsource/eb-garamond/400-italic.css";
+@import "@fontsource/eb-garamond/500-italic.css";
+@import "@fontsource/jetbrains-mono/400.css";
+@import "@fontsource/jetbrains-mono/500.css";
+
+:root {
+  /* Stage */
+  --bg: #14141a;
+  --surface: #1c1c24;
+  --surface-raised: #23232d;
+  --hairline: #2a2a35;
+
+  /* Tungsten amber */
+  --accent: #e0a55a;
+  --accent-warm: #d97a3a;
+  --accent-dim: #8a6537;
+
+  /* Type */
+  --text: #e8e6df;
+  --text-muted: #8a8780;
+  --text-faint: #5d5b56;
+
+  /* Faces */
+  --display: "EB Garamond", "Iowan Old Style", Georgia, serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+::selection {
+  background: var(--accent-warm);
+  color: var(--bg);
+}

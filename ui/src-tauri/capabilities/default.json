@@ -1,0 +1,12 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Capabilities for all ButterCut windows",
+  "windows": ["main", "library-*"],
+  "permissions": [
+    "core:default",
+    "opener:default",
+    "core:webview:allow-create-webview-window",
+    "core:window:allow-set-title"
+  ]
+}
