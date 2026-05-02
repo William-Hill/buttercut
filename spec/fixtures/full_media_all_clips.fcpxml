@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<fcpxml version="1.8">
+<fcpxml version="1.10">
   <resources>
     <format id="r1" height="720" width="1280" frameDuration="1001/24000s" colorSpace="1-1-1 (Rec. 709)"/>
     <asset id="__ASSET_ID_MVI_0309__" name="MVI_0309_720p.mov" uid="__ASSET_UID_MVI_0309__" src="__SRC_MVI_0309__" start="0s" audioRate="48000" hasAudio="1" hasVideo="1" format="r1" duration="101101/24000s"/>

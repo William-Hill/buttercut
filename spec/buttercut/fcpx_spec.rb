@@ -327,7 +327,7 @@ RSpec.describe ButterCut::FCPX do
       xml = generator.to_xml
 
       expect(xml).to include('<?xml version="1.0" encoding="utf-8"?>')
-      expect(xml).to include('<fcpxml version="1.8">')
+      expect(xml).to include('<fcpxml version="1.10">')
       expect(xml).to include('</fcpxml>')
     end
 
@@ -539,7 +539,7 @@ RSpec.describe ButterCut::FCPX do
 
       expect(File.exist?(filename)).to be true
       content = File.read(filename)
-      expect(content).to include('<fcpxml version="1.8">')
+      expect(content).to include('<fcpxml version="1.10">')
     end
 
     it 'saves complete valid FCPXML' do

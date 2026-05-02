@@ -5,6 +5,11 @@ All notable changes to ButterCut will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- **FCPXML output upgraded from 1.8 to 1.10.** When a roughcut clip carries `speed_ramps`, ButterCut now emits a `<timeMap>` with `<timept>` waypoints inside the `<asset-clip>`, so DaVinci Resolve preserves speed ramps on import without needing the apply script. Easing values map to FCPXML `interp`: `linear` → `linear`; `ease-in` / `ease-out` / `ease-in-out` → `smooth2`. Transitions and color tags are not yet emitted via FCPXML — those still flow through the recipe + apply script (or stay manual in Resolve).
+
 ## [0.5.0] - 2026-04-24
 
 ### Added
