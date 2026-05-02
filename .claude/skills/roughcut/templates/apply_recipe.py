@@ -112,8 +112,10 @@ class Applier:
             try:
                 if hasattr(item, "DeleteMarkerByCustomData"):
                     item.DeleteMarkerByCustomData(custom_data)
-            except Exception:
-                pass
+            except Exception as e:
+                self.warnings.append(
+                    f"clip {idx}: DeleteMarkerByCustomData({custom_data!r}) raised {type(e).__name__}: {e}"
+                )
             # Belt-and-braces: if a buttercut marker exists at the target
             # frame but its customData doesn't match (e.g. an old run used a
             # different name), remove it too — but ONLY when the marker's
