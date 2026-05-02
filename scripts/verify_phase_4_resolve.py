@@ -31,11 +31,22 @@ import os
 OUT_PATH = os.path.expanduser("~/buttercut_phase4_verify.json")
 
 
-def main():
+def get_resolve():
+    """Resolve injects `resolve` into the script's globals when run from
+    Workspace > Scripts. Fall back to the external bootstrap for off-menu use."""
+    if "resolve" in globals():
+        return globals()["resolve"]
     try:
-        resolve = bmd.scriptapp("Resolve")  # noqa: F821 (Resolve injects this)
-    except NameError:
-        print("ERROR: this script must be run from within DaVinci Resolve.")
+        import DaVinciResolveScript as dvr_script  # type: ignore
+        return dvr_script.scriptapp("Resolve")
+    except Exception:
+        return None
+
+
+def main():
+    resolve = get_resolve()
+    if resolve is None:
+        print("ERROR: could not connect to Resolve. Run from Workspace > Scripts > Edit.")
         return
 
     pm = resolve.GetProjectManager()
