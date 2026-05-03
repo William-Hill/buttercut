@@ -77,10 +77,7 @@ class ButtercutUiSidecar
   end
 
   def get_library(name)
-    yaml_path = @libraries_root.join(name, "library.yaml")
-    raise ArgumentError, "library not found: #{name}" unless yaml_path.file?
-
-    data = YAML.safe_load(yaml_path.read, permitted_classes: [Date, Time], aliases: true) || {}
+    data = load_library_yaml(name)
     videos = (data["videos"] || []).map { |v| video_entry(v) }
 
     {
@@ -89,6 +86,21 @@ class ButtercutUiSidecar
       video_paths_root: longest_common_parent(videos.map { |v| v[:path] }),
       videos: videos
     }
+  end
+
+  def load_library_yaml(name)
+    yaml_path = @libraries_root.join(name, "library.yaml")
+    raise ArgumentError, "library not found: #{name}" unless yaml_path.file?
+    YAML.safe_load(yaml_path.read, permitted_classes: [Date, Time], aliases: true) || {}
+  end
+
+  # Library entries are matched by basename. If two videos in different source
+  # folders share a filename, only the first is reachable — known limitation
+  # of the basename-as-id contract used throughout the sidecar.
+  def find_video_entry(library_data, library_name, video)
+    entry = (library_data["videos"] || []).find { |v| File.basename(v["path"].to_s) == video }
+    raise ArgumentError, "video not found in #{library_name}: #{video}" if entry.nil?
+    entry
   end
 
   def video_entry(v)
@@ -133,13 +145,7 @@ class ButtercutUiSidecar
   end
 
   def get_clip_transcripts(library, video)
-    yaml_path = @libraries_root.join(library, "library.yaml")
-    raise ArgumentError, "library not found: #{library}" unless yaml_path.file?
-
-    data = YAML.safe_load(yaml_path.read, permitted_classes: [Date, Time], aliases: true) || {}
-    entry = (data["videos"] || []).find { |v| File.basename(v["path"].to_s) == video }
-    raise ArgumentError, "video not found in #{library}: #{video}" if entry.nil?
-
+    entry = find_video_entry(load_library_yaml(library), library, video)
     lib_dir = @libraries_root.join(library)
     {
       audio: read_json_if_set(lib_dir.join("transcripts"), entry["transcript"]),
