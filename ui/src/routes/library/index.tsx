@@ -17,6 +17,7 @@ export default function Library({ name }: { name: string }) {
 
   useEffect(() => {
     let cancelled = false;
+    setState({ kind: "loading" });
     (async () => {
       try {
         const library = await getLibrary(name);

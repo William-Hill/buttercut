@@ -15,6 +15,7 @@ export function useThumbnail(library: string, video: string) {
   const ref = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
+    setState({ kind: "idle" });
     const el = ref.current;
     if (!el) return;
     let cancelled = false;

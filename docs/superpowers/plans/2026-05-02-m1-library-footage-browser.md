@@ -31,10 +31,10 @@
 
 **Modified:**
 - `ui/sidecar/buttercut_ui_sidecar.rb` — add `get_library`, `get_clip_transcripts`, `get_or_generate_thumbnail`
-- `ui/src-tauri/Cargo.toml` — add `urlencoding` already present; add nothing new
-- `ui/src-tauri/src/lib.rs` — three new RPC wrappers, `allow_video_paths` command, startup asset scope grant for libraries root, store `libraries_root` so the command can validate
+- `ui/src-tauri/Cargo.toml` — enable tauri feature `protocol-asset`
+- `ui/src-tauri/src/lib.rs` — three new RPC wrappers, `allow_video_paths` command, startup asset scope grant for libraries root
 - `ui/src-tauri/tauri.conf.json` — enable `assetProtocol`, add `media-src` to CSP
-- `ui/src-tauri/capabilities/default.json` — add asset protocol permissions
+- `ui/src-tauri/capabilities/default.json` — no change (Tauri 2 gates the asset protocol via the `protocol-asset` cargo feature, not per-window perms)
 - `ui/src/ipc/sidecar.ts` — typed wrappers for the new commands
 - `ui/src/main.tsx` — import path update for `./routes/library`
 

@@ -10,7 +10,7 @@ interface Props {
 
 export default function ClipGrid({ library, videos, selected, onSelect }: Props) {
   return (
-    <div className="clip-grid" role="listbox" aria-label="clips">
+    <div className="clip-grid">
       {videos.map((v) => (
         <ClipCard
           key={v.filename}

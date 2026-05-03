@@ -104,7 +104,7 @@ Two-up grid, ~150px wide cards. Each card:
 
 Interleaved rows, screenplay-style. Algorithm:
 
-```
+```text
 for visual_segment in visual_transcript.segments:
     render visual row
     for audio_segment in audio_transcript.segments where audio.start ∈ [visual.start, visual.end):
