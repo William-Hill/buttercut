@@ -11,9 +11,14 @@ interface Props {
 
 type LoadState =
   | { kind: "idle" }
-  | { kind: "loading" }
-  | { kind: "ready"; transcripts: ClipTranscripts }
-  | { kind: "error"; message: string };
+  | { kind: "loading"; library: string; video: string }
+  | { kind: "ready"; library: string; video: string; transcripts: ClipTranscripts }
+  | { kind: "error"; library: string; video: string; message: string };
+
+function matchesActive(state: LoadState, library: string, video: string | null): boolean {
+  if (state.kind === "idle") return false;
+  return state.library === library && state.video === video;
+}
 
 export default function TranscriptZone({ library, video, onSeek }: Props) {
   const [state, setState] = useState<LoadState>({ kind: "idle" });
@@ -24,12 +29,17 @@ export default function TranscriptZone({ library, video, onSeek }: Props) {
       return;
     }
     let cancelled = false;
-    setState({ kind: "loading" });
+    setState({ kind: "loading", library, video });
     getClipTranscripts(library, video)
-      .then((transcripts) => { if (!cancelled) setState({ kind: "ready", transcripts }); })
-      .catch((err) => { if (!cancelled) setState({ kind: "error", message: String(err) }); });
+      .then((transcripts) => { if (!cancelled) setState({ kind: "ready", library, video, transcripts }); })
+      .catch((err) => { if (!cancelled) setState({ kind: "error", library, video, message: String(err) }); });
     return () => { cancelled = true; };
   }, [library, video]);
+
+  // Ignore results that don't belong to the currently selected clip.
+  if (!matchesActive(state, library, video)) {
+    return <div className="transcript-zone transcript-zone--empty">{video ? "Loading transcripts…" : "No clip selected."}</div>;
+  }
 
   if (state.kind === "idle" || !video) {
     return <div className="transcript-zone transcript-zone--empty">No clip selected.</div>;

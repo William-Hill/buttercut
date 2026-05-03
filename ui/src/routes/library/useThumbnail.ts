@@ -22,6 +22,7 @@ export function useThumbnail(library: string, video: string) {
 
     const observer = new IntersectionObserver(
       (entries) => {
+        if (cancelled) return;
         if (entries.some((e) => e.isIntersecting)) {
           observer.disconnect();
           setState({ kind: "loading" });

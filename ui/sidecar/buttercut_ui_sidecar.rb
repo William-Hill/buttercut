@@ -91,8 +91,20 @@ class ButtercutUiSidecar
     }
   end
 
+  # Resolves a library name to its canonical directory under @libraries_root.
+  # Rejects names that escape the root via "../", absolute paths, or symlinks
+  # — protects against path traversal in load_library_yaml, get_clip_transcripts,
+  # and get_or_generate_thumbnail.
+  def library_dir(name)
+    root = @libraries_root.expand_path
+    dir = root.join(name).expand_path
+    root_prefix = root.to_s + File::SEPARATOR
+    raise ArgumentError, "invalid library name: #{name}" unless dir.to_s.start_with?(root_prefix)
+    dir
+  end
+
   def load_library_yaml(name)
-    yaml_path = @libraries_root.join(name, "library.yaml")
+    yaml_path = library_dir(name).join("library.yaml")
     raise ArgumentError, "library not found: #{name}" unless yaml_path.file?
     YAML.safe_load(yaml_path.read, permitted_classes: [Date, Time], aliases: true) || {}
   end
@@ -152,7 +164,7 @@ class ButtercutUiSidecar
 
   def get_clip_transcripts(library, video)
     entry = find_video_entry(load_library_yaml(library), library, video)
-    lib_dir = @libraries_root.join(library)
+    lib_dir = library_dir(library)
     {
       audio: read_json_if_set(lib_dir.join("transcripts"), entry["transcript"]),
       visual: read_json_if_set(lib_dir.join("transcripts"), entry["visual_transcript"]),
@@ -178,7 +190,7 @@ class ButtercutUiSidecar
   def get_or_generate_thumbnail(library, video)
     entry = find_video_entry(load_library_yaml(library), library, video)
 
-    cache_dir = @libraries_root.join(library, "thumbnails")
+    cache_dir = library_dir(library).join("thumbnails")
     cache_dir.mkpath
     out_path = cache_dir.join("#{File.basename(video, ".*")}.jpg")
     return { path: out_path.to_s } if out_path.file?
