@@ -2,9 +2,10 @@
 # frozen_string_literal: true
 
 require "json"
-require "yaml"
-require "time"
+require "open3"
 require "pathname"
+require "time"
+require "yaml"
 
 class ButtercutUiSidecar
   def self.run(libraries_root:, io_in: $stdin, io_out: $stdout)
@@ -184,8 +185,11 @@ class ButtercutUiSidecar
 
     cmd = ["ffmpeg", "-y", "-loglevel", "error", "-ss", "1", "-i", source.to_s,
            "-frames:v", "1", "-q:v", "4", out_path.to_s]
-    ok = system(*cmd)
-    raise "ffmpeg failed for #{video}" unless ok && out_path.file?
+    _stdout, stderr, status = Open3.capture3(*cmd)
+    unless status.success? && out_path.file?
+      out_path.delete if out_path.file?
+      raise "ffmpeg failed for #{video}: #{stderr.strip}"
+    end
 
     { path: out_path.to_s }
   end
