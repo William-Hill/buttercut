@@ -130,3 +130,8 @@
 .clip-card__dot--full { background: var(--accent-dim); }
 .clip-card__dot--partial { background: var(--accent); }
 .clip-card__dot--none { background: var(--hairline); }
+.library__detail {
+  display: grid;
+  grid-template-rows: minmax(220px, 40%) 1fr;
+  min-height: 0;
+}

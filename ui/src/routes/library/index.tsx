@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { allowVideoPaths, getLibrary } from "../../ipc/sidecar";
 import type { LibraryDetail } from "./types";
+import ClipGrid from "./ClipGrid";
 import "./library.css";
 
 type LoadState =
@@ -45,7 +46,15 @@ export default function Library({ name }: { name: string }) {
 
   return (
     <main className="library">
-      <p className="library__loading">Loaded {state.library.videos.length} clips. Selected: {state.selected || "(none)"}.</p>
+      <ClipGrid
+        library={state.library.name}
+        videos={state.library.videos}
+        selected={state.selected}
+        onSelect={(filename) => setState({ kind: "ready", library: state.library, selected: filename })}
+      />
+      <div className="library__detail">
+        <p className="library__loading">Detail pane for: {state.selected || "(none)"}</p>
+      </div>
     </main>
   );
 }
