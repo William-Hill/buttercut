@@ -47,10 +47,11 @@ class ButtercutUiSidecar
     respond_error(id: id, code: -32000, message: "#{e.class}: #{e.message}")
   end
 
-  def dispatch(method, _params)
+  def dispatch(method, params)
     case method
     when "ping"           then "pong"
     when "list_libraries" then list_libraries
+    when "get_library"    then get_library(params.fetch("name"))
     else raise UnknownMethod, "unknown method: #{method}"
     end
   end
@@ -71,6 +72,62 @@ class ButtercutUiSidecar
       video_count: (data["videos"] || []).length,
       last_touched_at: yaml_path.mtime.utc.iso8601
     }
+  end
+
+  def get_library(name)
+    yaml_path = @libraries_root.join(name, "library.yaml")
+    raise ArgumentError, "library not found: #{name}" unless yaml_path.file?
+
+    data = YAML.safe_load(yaml_path.read, permitted_classes: [Date, Time], aliases: true) || {}
+    videos = (data["videos"] || []).map { |v| video_entry(v) }
+
+    {
+      name: data["library_name"] || name,
+      footage_summary: data["footage_summary"] || "",
+      video_paths_root: longest_common_parent(videos.map { |v| v[:path] }),
+      videos: videos
+    }
+  end
+
+  def video_entry(v)
+    path = v["path"].to_s
+    {
+      filename: File.basename(path),
+      path: path,
+      duration_seconds: parse_duration(v["duration"]),
+      has_audio_transcript: present?(v["transcript"]),
+      has_visual_transcript: present?(v["visual_transcript"]),
+      has_summary: present?(v["summary"])
+    }
+  end
+
+  def present?(value)
+    !value.nil? && !value.to_s.empty?
+  end
+
+  def parse_duration(value)
+    return 0 if value.nil? || value.to_s.empty?
+    parts = value.to_s.split(":").map(&:to_f)
+    case parts.length
+    when 3 then (parts[0] * 3600 + parts[1] * 60 + parts[2]).to_i
+    when 2 then (parts[0] * 60 + parts[1]).to_i
+    else parts[0].to_i
+    end
+  end
+
+  def longest_common_parent(paths)
+    return "" if paths.empty?
+    parents = paths.map { |p| File.dirname(p).split(File::SEPARATOR) }
+    common = parents.first.dup
+    parents.each do |segs|
+      common.length.times do |i|
+        if segs[i] != common[i]
+          common = common[0...i]
+          break
+        end
+      end
+    end
+    common.join(File::SEPARATOR)
   end
 
   def respond(id:, result:)
