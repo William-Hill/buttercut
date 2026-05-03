@@ -101,4 +101,46 @@ RSpec.describe ButtercutUiSidecar do
       end
     end
   end
+
+  describe "get_or_generate_thumbnail" do
+    it "returns the cached path on second call without re-shelling out" do
+      Dir.mktmpdir do |root|
+        lib = LibraryFixture.build(root, name: "demo",
+          videos: [{ path: "/x/a.mp4" }])
+
+        # Pre-place the cached thumbnail to avoid needing ffmpeg in CI.
+        cached = File.join(lib, "thumbnails", "a.jpg")
+        FileUtils.mkdir_p(File.dirname(cached))
+        File.write(cached, "fake-jpg-bytes")
+
+        r = call(root, "get_or_generate_thumbnail", { library: "demo", video: "a.mp4" })["result"]
+        expect(r["path"]).to eq(cached)
+      end
+    end
+
+    it "shells out to ffmpeg on cache miss when ffmpeg is available", skip: !system("which ffmpeg > /dev/null 2>&1") do
+      Dir.mktmpdir do |root|
+        # Create a 1-second silent test video using ffmpeg.
+        videos_root = File.join(root, "footage")
+        FileUtils.mkdir_p(videos_root)
+        video = File.join(videos_root, "tiny.mp4")
+        system("ffmpeg -y -loglevel error -f lavfi -i color=c=red:s=64x64:d=2 -pix_fmt yuv420p #{video}")
+
+        LibraryFixture.build(root, name: "demo", videos: [{ path: video }])
+        r = call(root, "get_or_generate_thumbnail", { library: "demo", video: "tiny.mp4" })["result"]
+
+        expect(File.file?(r["path"])).to be true
+        expect(File.size(r["path"])).to be > 0
+      end
+    end
+
+    it "returns an RPC error when the source video file is missing" do
+      Dir.mktmpdir do |root|
+        LibraryFixture.build(root, name: "demo",
+          videos: [{ path: "/nonexistent/missing.mp4" }])
+        r = call(root, "get_or_generate_thumbnail", { library: "demo", video: "missing.mp4" })
+        expect(r["error"]["message"]).to match(/missing\.mp4/)
+      end
+    end
+  end
 end

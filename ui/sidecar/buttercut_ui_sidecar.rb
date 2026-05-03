@@ -54,6 +54,8 @@ class ButtercutUiSidecar
     when "get_library"    then get_library(params.fetch("name"))
     when "get_clip_transcripts"
       get_clip_transcripts(params.fetch("library"), params.fetch("video"))
+    when "get_or_generate_thumbnail"
+      get_or_generate_thumbnail(params.fetch("library"), params.fetch("video"))
     else raise UnknownMethod, "unknown method: #{method}"
     end
   end
@@ -167,6 +169,25 @@ class ButtercutUiSidecar
     return nil unless present?(name)
     path = dir.join(name)
     path.file? ? path.read : nil
+  end
+
+  def get_or_generate_thumbnail(library, video)
+    entry = find_video_entry(load_library_yaml(library), library, video)
+
+    cache_dir = @libraries_root.join(library, "thumbnails")
+    cache_dir.mkpath
+    out_path = cache_dir.join("#{File.basename(video, ".*")}.jpg")
+    return { path: out_path.to_s } if out_path.file?
+
+    source = Pathname.new(entry["path"].to_s)
+    raise "source video missing: #{video} (expected at #{source})" unless source.file?
+
+    cmd = ["ffmpeg", "-y", "-loglevel", "error", "-ss", "1", "-i", source.to_s,
+           "-frames:v", "1", "-q:v", "4", out_path.to_s]
+    ok = system(*cmd)
+    raise "ffmpeg failed for #{video}" unless ok && out_path.file?
+
+    { path: out_path.to_s }
   end
 
   def respond(id:, result:)
