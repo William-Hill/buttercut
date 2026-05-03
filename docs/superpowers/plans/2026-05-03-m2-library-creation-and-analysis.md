@@ -16,6 +16,40 @@
 
 ---
 
+## Handoff briefing — read this if you're picking up a single task cold
+
+Each task below is self-contained: exact file paths, complete code, expected test output, and a commit message. You don't have to read the whole plan to execute one. But here's the surrounding context an outside agent (Cursor, Codex, fresh Claude) needs to make sense of any individual task:
+
+**Repo:** `buttercut` — a Ruby gem for generating Final Cut Pro / Resolve XML, with a Tauri 2 desktop UI in `ui/`. The CLI workflow is driven by Claude Code via skills under `.claude/skills/`. M2 adds a New Project flow + streaming progress view to the desktop UI so non-terminal users can create and analyze libraries.
+
+**Stack invariants — do not change:**
+- Tauri 2 + React 19 + plain CSS. No Tailwind, no component libraries.
+- `@fontsource/eb-garamond` (italic display) + `@fontsource/jetbrains-mono` (technical metadata).
+- Tungsten amber `#e0a55a` accent on dark stage `#14141a`.
+- Local Ruby sidecar over JSON-RPC stdio. Ruby ≥ 3, Bundler.
+- Sidecar entrypoint: `ui/sidecar/buttercut_ui_sidecar.rb` (one class per file convention; see `CLAUDE.md` "Programming Style").
+- Rust shell: `ui/src-tauri/src/lib.rs` (commands) + `ui/src-tauri/src/sidecar.rs` (JSON-RPC reader/writer + `init`).
+
+**Architectural decisions locked in by the spec** (`docs/superpowers/specs/2026-05-03-m2-library-creation-and-analysis-design.md`):
+1. **Streaming progress over JSON-RPC notifications** — sidecar emits payloads with no `id`; Rust reader recognizes them as notifications and forwards to Tauri events scoped per `job_id` (`sidecar-event:JOB_ID`).
+2. **Sidecar owns the analysis pipeline** — calls whisperx + ffmpeg as subprocesses, calls Anthropic SDK directly for analyze + summarize. The CLI workflow continues to use Claude Code as parent. Two parents share prompt content via `ui/sidecar/prompts/*.md`.
+3. **Plain-text API key in `libraries/settings.yaml`** (gitignored), with `ANTHROPIC_API_KEY` env override. Validated on save with a Haiku ping.
+4. **Hard-stop cancellation** — `cancel_job` kills child PIDs (SIGTERM → SIGKILL after 2s) and aborts SDK calls. Artifacts are written via tempfile + atomic rename so partial state is never half-written.
+5. **Concurrency caps as constants** — transcribe=2, analyze=8, summarize=10. No global rate limiter (the SDK retries 429s).
+
+**Existing patterns to follow:**
+- Ruby: one class per file; required args raise `ArgumentError` in `initialize`; CLI parsing in a bottom-of-file `if __FILE__ == $PROGRAM_NAME` block; exposed entry method (`Klass.run`/`Klass.create!`); spec at `spec/<same path>_spec.rb` using `Dir.mktmpdir` + `LibraryFixture` from `ui/sidecar/spec/fixtures/library_fixture.rb`.
+- Rust: every Tauri command is `async fn`, returns `Result<Value, String>`, delegates to `sidecar::call(...)`; register the command in the `tauri::generate_handler![...]` list inside `run()`.
+- TypeScript: typed wrappers in `ui/src/ipc/sidecar.ts`; React components default-exported from their file; CSS imported alongside the component (see `ui/src/routes/projects.tsx` + `projects.css`).
+
+**Don't:** add Co-Authored-By or Claude attribution to commits; skip git hooks (`--no-verify`); use `git add .`/`git add -A` (be explicit); add Tailwind, shadcn, or other styling libs; modify `lib/buttercut/` (the gem core) unless the task explicitly says so.
+
+**Pre-existing failures to ignore:** `spec/buttercut/fcpx_spec.rb` may have failures unrelated to M2 — don't try to fix them.
+
+**When stuck on a task:** re-read the spec section it implements (referenced at the top of each Phase). The spec's "Decisions log" answers most "but why this way?" questions. If the spec doesn't cover it, add a brief note to the PR description rather than expanding scope.
+
+---
+
 ## File Structure
 
 ### New Ruby files (sidecar)
