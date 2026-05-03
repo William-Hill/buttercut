@@ -564,26 +564,15 @@ Replace the entire `"security"` block (currently `"security": { "csp": { ... } }
     }
 ```
 
-- [ ] **Step 2: Edit `ui/src-tauri/capabilities/default.json`**
+- [ ] **Step 2: Add `protocol-asset` cargo feature to the `tauri` dep**
 
-Add asset-protocol permissions to the `permissions` array:
+Tauri 2 gates the asset protocol via the `protocol-asset` cargo feature, not via per-window capabilities. Edit `ui/src-tauri/Cargo.toml`:
 
-```json
-{
-  "$schema": "../gen/schemas/desktop-schema.json",
-  "identifier": "default",
-  "description": "Capabilities for all ButterCut windows",
-  "windows": ["main", "library-*"],
-  "permissions": [
-    "core:default",
-    "opener:default",
-    "core:webview:allow-create-webview-window",
-    "core:window:allow-set-title",
-    "core:asset:default",
-    "core:asset:allow-read"
-  ]
-}
+```toml
+tauri = { version = "2", features = ["protocol-asset"] }
 ```
+
+`capabilities/default.json` does not change — there is no `core:asset:*` permission namespace in Tauri 2. Runtime scope is granted via `app.asset_protocol_scope().allow_directory(...)` (Task 6).
 
 - [ ] **Step 3: Verify cargo check is still green**
 
