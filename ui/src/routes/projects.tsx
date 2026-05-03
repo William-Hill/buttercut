@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { listLibraries, openLibraryWindow, LibrarySummary } from "../ipc/sidecar";
+import { listLibraries, openLibraryWindow, openNewProjectWindow, LibrarySummary } from "../ipc/sidecar";
 import "./projects.css";
 
 type LoadState =
@@ -19,8 +19,19 @@ export default function Projects() {
   return (
     <main className="projects">
       <header className="projects__header">
-        <h1 className="projects__title">ButterCut</h1>
-        <p className="projects__subtitle">Your libraries</p>
+        <div className="projects__header-row">
+          <div>
+            <h1 className="projects__title">ButterCut</h1>
+            <p className="projects__subtitle">Your libraries</p>
+          </div>
+          <button
+            type="button"
+            className="projects__new"
+            onClick={() => openNewProjectWindow().catch(console.error)}
+          >
+            New project
+          </button>
+        </div>
       </header>
 
       {state.kind === "loading" && <p className="projects__status">Reading libraries…</p>}
@@ -33,7 +44,7 @@ export default function Projects() {
       )}
 
       {state.kind === "ready" && state.libraries.length === 0 && (
-        <p className="projects__status">No libraries yet. Create one with the CLI for now.</p>
+        <p className="projects__status">No libraries yet. Use New project to create one from the app, or use the CLI.</p>
       )}
 
       {state.kind === "ready" && state.libraries.length > 0 && (

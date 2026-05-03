@@ -3,16 +3,20 @@ import ReactDOM from "react-dom/client";
 import "./styles/theme.css";
 import Projects from "./routes/projects";
 import Library from "./routes/library";
+import NewProject from "./routes/new-project";
 
 function pickRoute() {
   const hash = window.location.hash || "";
-  const match = hash.match(/^#\/library\/(.+)$/);
-  if (match) {
+  const lib = hash.match(/^#\/library\/(.+)$/);
+  if (lib) {
     try {
-      return <Library name={decodeURIComponent(match[1])} />;
+      return <Library name={decodeURIComponent(lib[1])} />;
     } catch {
       return <Projects />;
     }
+  }
+  if (hash === "#/new-project") {
+    return <NewProject />;
   }
   return <Projects />;
 }

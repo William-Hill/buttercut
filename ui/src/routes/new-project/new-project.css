@@ -1,0 +1,27 @@
+.new-project {
+  min-height: 100vh;
+  padding: 2rem 2.5rem;
+  background: var(--color-stage, #14141a);
+  color: var(--color-text, #e8e6e3);
+}
+
+.new-project__header {
+  max-width: 40rem;
+}
+
+.new-project__title {
+  font-family: "EB Garamond", Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+  font-size: 2rem;
+  margin: 0 0 0.5rem;
+  color: var(--color-accent, #e0a55a);
+}
+
+.new-project__subtitle {
+  margin: 0;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.85rem;
+  opacity: 0.85;
+  line-height: 1.5;
+}
