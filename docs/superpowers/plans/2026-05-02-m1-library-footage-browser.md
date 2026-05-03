@@ -76,6 +76,7 @@ end
 
 ```ruby
 require "fileutils"
+require "json"
 require "tmpdir"
 require "yaml"
 
