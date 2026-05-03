@@ -144,6 +144,9 @@ class ButtercutUiSidecar
         end
       end
     end
+    # Absolute paths split to a leading "" segment; if only that survives,
+    # return "/" so the frontend doesn't treat the result as falsy.
+    return File::SEPARATOR if common == [""]
     common.join(File::SEPARATOR)
   end
 

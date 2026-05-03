@@ -53,6 +53,18 @@ export default function TranscriptZone({ library, video, onSeek }: Props) {
     return <div className="transcript-zone transcript-zone--empty">This clip hasn't been analyzed yet.</div>;
   }
 
+  // Visual transcript drives the screenplay layout; without it, render audio
+  // segments standalone so audio-only clips don't render as a blank pane.
+  if (visualSegments.length === 0) {
+    return (
+      <div className="transcript-zone">
+        {audioSegments.map((seg, i) => (
+          <AudioRow key={i} segment={seg} onSeek={onSeek} />
+        ))}
+      </div>
+    );
+  }
+
   const rows = interleave(visualSegments, audioSegments);
 
   return (
