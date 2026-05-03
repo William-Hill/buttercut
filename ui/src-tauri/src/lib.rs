@@ -154,6 +154,7 @@ fn sanitize_label(name: &str) -> String {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let (ruby_bin, sidecar_script, libraries_root) = resolve_sidecar_paths()?;
 
