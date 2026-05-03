@@ -1,0 +1,26 @@
+.library {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.library__loading,
+.library__error {
+  grid-column: 1 / -1;
+  padding: 64px 72px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.library__error pre {
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
+  color: var(--accent-warm);
+  white-space: pre-wrap;
+}
