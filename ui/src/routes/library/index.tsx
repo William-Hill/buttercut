@@ -3,6 +3,7 @@ import { allowVideoPaths, getLibrary } from "../../ipc/sidecar";
 import type { LibraryDetail } from "./types";
 import ClipGrid from "./ClipGrid";
 import StageZone from "./StageZone";
+import TranscriptZone from "./TranscriptZone";
 import "./library.css";
 
 type LoadState =
@@ -58,9 +59,14 @@ export default function Library({ name }: { name: string }) {
       />
       <div className="library__detail">
         <StageZone ref={videoRef} video={selectedVideo} footageSummary={state.library.footage_summary} />
-        <div className="transcript-zone">
-          <p className="library__loading">Transcript zone placeholder.</p>
-        </div>
+        <TranscriptZone
+          library={state.library.name}
+          video={state.selected || null}
+          onSeek={(seconds) => {
+            const v = videoRef.current;
+            if (v) v.currentTime = seconds;
+          }}
+        />
       </div>
     </main>
   );
