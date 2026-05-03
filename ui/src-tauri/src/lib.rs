@@ -3,12 +3,9 @@ mod sidecar;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
 
 use serde_json::{json, Value};
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
-
-struct LibrariesRoot(Mutex<PathBuf>);
 
 #[tauri::command]
 async fn list_libraries() -> Result<Value, String> {
@@ -94,8 +91,6 @@ pub fn run() {
             // Per-library video paths are granted later via `allow_video_paths`.
             app.asset_protocol_scope()
                 .allow_directory(&libraries_root, true)?;
-
-            app.manage(LibrariesRoot(Mutex::new(libraries_root.clone())));
 
             // tokio::process::Command needs a running reactor; setup() runs before one exists.
             tauri::async_runtime::block_on(async move {
