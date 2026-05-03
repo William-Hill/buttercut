@@ -35,6 +35,28 @@ module ButtercutUiSidecar
       raise InvalidApiKey, e.message
     end
 
+    # Normalizes SDK response objects (or Hash) to a single assistant text string.
+    def self.message_body_text(response)
+      return "" if response.nil?
+
+      content =
+        if response.respond_to?(:content)
+          response.content
+        else
+          response["content"] || response[:content]
+        end
+
+      Array(content).map do |block|
+        if block.respond_to?(:text)
+          block.text.to_s
+        elsif block.is_a?(Hash)
+          (block["text"] || block[:text]).to_s
+        else
+          ""
+        end
+      end.join
+    end
+
     private
 
     def build_sdk(api_key)

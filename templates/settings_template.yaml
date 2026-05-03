@@ -8,3 +8,8 @@ editor: fcpx
 # turbo is nearly as accurate as large-v3 but significantly faster
 # Recommended: `small` paired with transcript_refinement (set per-library in library.yaml)
 whisper_model: small
+
+# Anthropic API key for the desktop UI's analysis pipeline. The CLI flow
+# uses Claude Code's own auth and ignores this field. Optional — the env
+# var ANTHROPIC_API_KEY takes precedence when set.
+anthropic_api_key: ""

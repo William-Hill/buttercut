@@ -35,4 +35,11 @@ RSpec.describe ButtercutUiSidecar::AnthropicClient do
     client = described_class.new(api_key: "sk-bad", sdk: fake, auth_error_classes: [described_class::FakeAuthError])
     expect { client.validate_key! }.to raise_error(ButtercutUiSidecar::AnthropicClient::InvalidApiKey, /invalid/)
   end
+
+  describe ".message_body_text" do
+    it "joins text blocks from a Hash-shaped response" do
+      text = described_class.message_body_text({ "content" => [{ "text" => "a" }, { "text" => "b" }] })
+      expect(text).to eq("ab")
+    end
+  end
 end

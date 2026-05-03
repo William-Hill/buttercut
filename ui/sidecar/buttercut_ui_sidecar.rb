@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
+require "base64"
 require "json"
 require "open3"
 require "pathname"
@@ -13,6 +14,12 @@ require_relative "lib/buttercut_ui_sidecar/settings_store"
 require_relative "lib/buttercut_ui_sidecar/anthropic_client"
 require_relative "lib/buttercut_ui_sidecar/video_inspector"
 require_relative "lib/buttercut_ui_sidecar/library_creator"
+require_relative "lib/buttercut_ui_sidecar/job_registry"
+require_relative "lib/buttercut_ui_sidecar/analysis_job"
+require_relative "lib/buttercut_ui_sidecar/analysis_controller"
+require_relative "lib/buttercut_ui_sidecar/stages/transcribe"
+require_relative "lib/buttercut_ui_sidecar/stages/analyze"
+require_relative "lib/buttercut_ui_sidecar/stages/summarize"
 
 module ButtercutUiSidecar
   def self.run(libraries_root:, io_in: $stdin, io_out: $stdout)
@@ -32,6 +39,7 @@ module ButtercutUiSidecar
       @notifier = ButtercutUiSidecar::Notifier.new(io: @io_out)
       @inspector = ButtercutUiSidecar::VideoInspector.new
       @creator = ButtercutUiSidecar::LibraryCreator.new(libraries_root: @libraries_root.to_s)
+      @registry = ButtercutUiSidecar::JobRegistry.new
     end
 
     def run
@@ -60,7 +68,14 @@ module ButtercutUiSidecar
     rescue ButtercutUiSidecar::LibraryCreator::LibraryExists => e
       respond_error(id: id, code: -32011, message: "library_exists: #{e.message}")
     rescue StandardError => e
-      respond_error(id: id, code: -32000, message: "#{e.class}: #{e.message}")
+      case e.message
+      when /\Amissing_api_key(\z|:)/
+        respond_error(id: id, code: -32010, message: "missing_api_key")
+      when /\Ainvalid_api_key/
+        respond_error(id: id, code: -32012, message: e.message)
+      else
+        respond_error(id: id, code: -32000, message: "#{e.class}: #{e.message}")
+      end
     end
 
     def dispatch(method, params)
@@ -86,6 +101,16 @@ module ButtercutUiSidecar
           refinement: params.fetch("refinement"),
           videos: params.fetch("videos")
         )
+      when "start_analysis"
+        controller = build_controller_or_raise!
+        job_id = controller.start!(library: params.fetch("library"))
+        { job_id: job_id }
+      when "cancel_job"
+        job = @registry.get(params.fetch("job_id"))
+        job&.cancel!
+        {}
+      when "retry_unit"
+        raise StandardError, "retry_unit is not yet supported in M2 minimum scope; re-run start_analysis to resume."
       else raise UnknownMethod, "unknown method: #{method}"
       end
     end
@@ -245,6 +270,67 @@ module ButtercutUiSidecar
       { ok: true }
     rescue ButtercutUiSidecar::AnthropicClient::InvalidApiKey => e
       raise StandardError, "invalid_api_key: #{e.message}"
+    end
+
+    def build_controller_or_raise!
+      api_key = @settings.api_key
+      raise StandardError, "missing_api_key" if api_key.nil?
+
+      client = ButtercutUiSidecar::AnthropicClient.new(api_key: api_key)
+
+      vision = lambda do |frames, prompt|
+        content = frames.map do |f|
+          {
+            type: "image",
+            source: {
+              type: "base64",
+              media_type: "image/jpeg",
+              data: Base64.strict_encode64(File.binread(f))
+            }
+          }
+        end
+        content << {
+          type: "text",
+          text: "#{prompt}\n\nReturn ONLY a JSON object of the form {\"segments\": [...]}, no prose."
+        }
+        response = client.messages_create(
+          model: ButtercutUiSidecar::AnthropicClient::VISION_MODEL,
+          max_tokens: 4096,
+          messages: [{ role: "user", content: content }]
+        )
+        text = ButtercutUiSidecar::AnthropicClient.message_body_text(response)
+        json_slice = text[/\{.*\}/m]
+        raise "vision model returned no JSON object" if json_slice.nil? || json_slice.empty?
+
+        JSON.parse(json_slice)
+      end
+
+      haiku = lambda do |prompt|
+        response = client.messages_create(
+          model: ButtercutUiSidecar::AnthropicClient::HAIKU_MODEL,
+          max_tokens: 1024,
+          messages: [{ role: "user", content: prompt }]
+        )
+        ButtercutUiSidecar::AnthropicClient.message_body_text(response)
+      end
+
+      ButtercutUiSidecar::AnalysisController.new(
+        libraries_root: @libraries_root.to_s,
+        notifier: @notifier,
+        registry: @registry,
+        transcribe: ButtercutUiSidecar::Stages::Transcribe.new,
+        analyze: ButtercutUiSidecar::Stages::Analyze.new(vision: vision),
+        summarize: ButtercutUiSidecar::Stages::Summarize.new(haiku: haiku),
+        whisper_model: read_whisper_model
+      )
+    end
+
+    def read_whisper_model
+      path = @libraries_root.join("settings.yaml")
+      return "small" unless path.file?
+
+      data = YAML.safe_load(path.read, permitted_classes: [Date, Time], aliases: true) || {}
+      data["whisper_model"] || "small"
     end
 
     def respond(id:, result:)

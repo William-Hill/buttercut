@@ -116,6 +116,21 @@ RSpec.describe ButtercutUiSidecar do
     end
   end
 
+  describe "start_analysis" do
+    it "returns missing_api_key when no Anthropic key is configured" do
+      prev = ENV.delete("ANTHROPIC_API_KEY")
+      begin
+        Dir.mktmpdir do |root|
+          result = call(root, "start_analysis", { library: "demo" })
+          expect(result["error"]["code"]).to eq(-32_010)
+          expect(result["error"]["message"]).to eq("missing_api_key")
+        end
+      ensure
+        ENV["ANTHROPIC_API_KEY"] = prev if prev
+      end
+    end
+  end
+
   describe "create_library" do
     it "creates a library and returns its slug" do
       Dir.mktmpdir do |root|
