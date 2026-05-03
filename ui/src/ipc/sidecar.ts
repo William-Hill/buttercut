@@ -69,10 +69,11 @@ export interface CreateLibraryArgs {
 
 export async function createLibrary(args: CreateLibraryArgs): Promise<{ name: string }> {
   const { name, language, language_code, refinement, videos } = args;
+  // Tauri maps Rust snake_case params to camelCase invoke keys.
   return invoke<{ name: string }>("create_library", {
     name,
     language,
-    language_code,
+    languageCode: language_code,
     refinement,
     videos,
   });
@@ -83,7 +84,7 @@ export async function startAnalysis(library: string): Promise<{ job_id: string }
 }
 
 export async function cancelJob(jobId: string): Promise<void> {
-  await invoke("cancel_job", { job_id: jobId });
+  await invoke("cancel_job", { jobId });
 }
 
 export async function openNewProjectWindow(): Promise<void> {
