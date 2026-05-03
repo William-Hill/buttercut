@@ -52,6 +52,8 @@ class ButtercutUiSidecar
     when "ping"           then "pong"
     when "list_libraries" then list_libraries
     when "get_library"    then get_library(params.fetch("name"))
+    when "get_clip_transcripts"
+      get_clip_transcripts(params.fetch("library"), params.fetch("video"))
     else raise UnknownMethod, "unknown method: #{method}"
     end
   end
@@ -128,6 +130,37 @@ class ButtercutUiSidecar
       end
     end
     common.join(File::SEPARATOR)
+  end
+
+  def get_clip_transcripts(library, video)
+    yaml_path = @libraries_root.join(library, "library.yaml")
+    raise ArgumentError, "library not found: #{library}" unless yaml_path.file?
+
+    data = YAML.safe_load(yaml_path.read, permitted_classes: [Date, Time], aliases: true) || {}
+    entry = (data["videos"] || []).find { |v| File.basename(v["path"].to_s) == video }
+    raise ArgumentError, "video not found in #{library}: #{video}" if entry.nil?
+
+    lib_dir = @libraries_root.join(library)
+    {
+      audio: read_json_if_set(lib_dir.join("transcripts"), entry["transcript"]),
+      visual: read_json_if_set(lib_dir.join("transcripts"), entry["visual_transcript"]),
+      summary: read_text_if_set(lib_dir.join("summaries"), entry["summary"])
+    }
+  end
+
+  def read_json_if_set(dir, name)
+    return nil unless present?(name)
+    path = dir.join(name)
+    return nil unless path.file?
+    JSON.parse(path.read)
+  rescue JSON::ParserError => e
+    raise "transcript parse error in #{path}: #{e.message}"
+  end
+
+  def read_text_if_set(dir, name)
+    return nil unless present?(name)
+    path = dir.join(name)
+    path.file? ? path.read : nil
   end
 
   def respond(id:, result:)
