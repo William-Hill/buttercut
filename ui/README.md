@@ -15,10 +15,15 @@ A Tauri-based desktop shell over the existing ButterCut Ruby gem. M0 is read-onl
 - IPC is line-delimited JSON-RPC 2.0 over the sidecar's stdin/stdout. Per-call response routing lives in `src-tauri/src/sidecar.rs`.
 - The Ruby sidecar (`sidecar/buttercut_ui_sidecar.rb`) is a single class wrapping read access to the libraries directory.
 
-For M0 the sidecar exposes:
+The sidecar exposes:
 
 - `ping` → `"pong"`
 - `list_libraries` → `[{name, video_count, last_touched_at}]`
+- `get_library(name)` → library detail with video list, summary, common video parent dir
+- `get_clip_transcripts(library, video)` → audio + visual + summary (any may be null)
+- `get_or_generate_thumbnail(library, video)` → cached or freshly-extracted JPG path
+
+Run sidecar tests with `cd ui/sidecar && rake spec` (requires `rspec` in PATH; ffmpeg-dependent test will skip if ffmpeg is absent).
 
 ## Requirements
 

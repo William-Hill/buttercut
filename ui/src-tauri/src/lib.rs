@@ -2,15 +2,46 @@ mod sidecar;
 
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde_json::{json, Value};
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
 #[tauri::command]
 async fn list_libraries() -> Result<Value, String> {
-    sidecar::call("list_libraries", json!({}))
+    sidecar::call("list_libraries", json!({})).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn get_library(name: String) -> Result<Value, String> {
+    sidecar::call("get_library", json!({ "name": name })).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn get_clip_transcripts(library: String, video: String) -> Result<Value, String> {
+    sidecar::call("get_clip_transcripts", json!({ "library": library, "video": video }))
         .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn get_or_generate_thumbnail(library: String, video: String) -> Result<Value, String> {
+    sidecar::call("get_or_generate_thumbnail", json!({ "library": library, "video": video }))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn allow_video_paths(app: tauri::AppHandle, root: String) -> Result<(), String> {
+    if root.is_empty() {
+        return Err("root cannot be empty".into());
+    }
+    let root_path = Path::new(&root);
+    if !root_path.is_absolute() {
+        return Err("root must be an absolute path".into());
+    }
+    app.asset_protocol_scope()
+        .allow_directory(root_path, true)
         .map_err(|e| e.to_string())
 }
 
@@ -52,15 +83,29 @@ fn sanitize_label(name: &str) -> String {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .setup(|_app| {
+        .setup(|app| {
             let (ruby_bin, sidecar_script, libraries_root) = resolve_sidecar_paths()?;
+
+            // Grant assetProtocol scope to the libraries root so generated
+            // thumbnails (libraries/<name>/thumbnails/*.jpg) load via convertFileSrc.
+            // Per-library video paths are granted later via `allow_video_paths`.
+            app.asset_protocol_scope()
+                .allow_directory(&libraries_root, true)?;
+
             // tokio::process::Command needs a running reactor; setup() runs before one exists.
             tauri::async_runtime::block_on(async move {
                 sidecar::init(ruby_bin, sidecar_script, libraries_root)
             })?;
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![list_libraries, open_library_window])
+        .invoke_handler(tauri::generate_handler![
+            list_libraries,
+            get_library,
+            get_clip_transcripts,
+            get_or_generate_thumbnail,
+            allow_video_paths,
+            open_library_window
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
