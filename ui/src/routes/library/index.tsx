@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { allowVideoPaths, getLibrary } from "../../ipc/sidecar";
 import type { LibraryDetail } from "./types";
 import ClipGrid from "./ClipGrid";
+import StageZone from "./StageZone";
 import "./library.css";
 
 type LoadState =
@@ -11,6 +12,7 @@ type LoadState =
 
 export default function Library({ name }: { name: string }) {
   const [state, setState] = useState<LoadState>({ kind: "loading" });
+  const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -44,6 +46,8 @@ export default function Library({ name }: { name: string }) {
     );
   }
 
+  const selectedVideo = state.library.videos.find((v) => v.filename === state.selected);
+
   return (
     <main className="library">
       <ClipGrid
@@ -53,7 +57,10 @@ export default function Library({ name }: { name: string }) {
         onSelect={(filename) => setState({ kind: "ready", library: state.library, selected: filename })}
       />
       <div className="library__detail">
-        <p className="library__loading">Detail pane for: {state.selected || "(none)"}</p>
+        <StageZone ref={videoRef} video={selectedVideo} footageSummary={state.library.footage_summary} />
+        <div className="transcript-zone">
+          <p className="library__loading">Transcript zone placeholder.</p>
+        </div>
       </div>
     </main>
   );
