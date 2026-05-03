@@ -24,3 +24,109 @@
   color: var(--accent-warm);
   white-space: pre-wrap;
 }
+
+.clip-grid {
+  padding: 16px 12px;
+  border-right: 1px solid var(--hairline);
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  align-content: start;
+}
+
+.clip-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 0 0 8px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
+  text-align: left;
+  overflow: hidden;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.clip-card:hover {
+  border-color: var(--accent-dim);
+  background: var(--surface-raised);
+}
+
+.clip-card--selected {
+  border-color: var(--accent);
+  background: var(--surface-raised);
+}
+
+.clip-card:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.clip-card__thumb {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: var(--bg);
+  position: relative;
+  overflow: hidden;
+}
+
+.clip-card__thumb[data-state="loading"]::after,
+.clip-card__thumb[data-state="idle"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(224, 165, 90, 0.06), transparent);
+  animation: shimmer 1.6s linear infinite;
+}
+
+.clip-card__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.clip-card__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 10px;
+}
+
+.clip-card__name {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.clip-card__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.clip-card__duration {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.clip-card__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.clip-card__dot--full { background: var(--accent-dim); }
+.clip-card__dot--partial { background: var(--accent); }
+.clip-card__dot--none { background: var(--hairline); }
