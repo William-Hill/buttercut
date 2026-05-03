@@ -1,4 +1,4 @@
-import { forwardRef, useState } from "react";
+import { forwardRef, useEffect, useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import type { VideoEntry } from "./types";
 
@@ -9,6 +9,8 @@ interface Props {
 
 const StageZone = forwardRef<HTMLVideoElement, Props>(function StageZone({ video, footageSummary }, ref) {
   const [errored, setErrored] = useState(false);
+
+  useEffect(() => { setErrored(false); }, [video?.path]);
 
   if (!video) {
     return <div className="stage stage--empty"><p>No clip selected.</p></div>;
