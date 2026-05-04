@@ -42,12 +42,19 @@ export function useTranscriptEditor({ library, clip, scrollContainerRef, onTrans
   // Subscribe to transcript_edited; capture anchor + ask caller to refetch.
   useEffect(() => {
     let unlisten: (() => void) | null = null;
+    let disposed = false;
     listenTranscriptEdited((e) => {
       if (e.library !== library || e.clip !== clip) return;
       anchorRef.current = captureAnchor(scrollContainerRef.current);
       onTranscriptEdited();
-    }).then((fn) => { unlisten = fn; });
-    return () => { unlisten?.(); };
+    }).then((fn) => {
+      if (disposed) fn();
+      else unlisten = fn;
+    });
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
   }, [library, clip, scrollContainerRef, onTranscriptEdited]);
 
   // Restore anchor after the caller's refetch + re-render. Caller invokes
@@ -126,18 +133,26 @@ export function useTranscriptEditor({ library, clip, scrollContainerRef, onTrans
   const undo = useCallback(async () => {
     const entry = undoRef.current;
     if (!entry) return;
-    undoRef.current = null;
-    if (entry.scope === "clip" && entry.inverse_edit) {
-      const { clip: c, ...edit } = entry.inverse_edit;
-      anchorRef.current = captureAnchor(scrollContainerRef.current);
-      await applyTranscriptEdit(library, c, edit);
-      onTranscriptEdited();
-    } else if (entry.inverse_replace) {
-      anchorRef.current = captureAnchor(scrollContainerRef.current);
-      // Note: trust-scope undo cannot remove the term from user_context via
-      // the existing apply_library_replace API. v1 leaves the term in
-      // user_context on undo (a known minor leak; documented in PR notes).
-      await applyLibraryReplace(library, entry.inverse_replace.old_tokens, entry.inverse_replace.new_tokens, false);
+    setBusy(true);
+    setError(null);
+    try {
+      if (entry.scope === "clip" && entry.inverse_edit) {
+        const { clip: c, ...edit } = entry.inverse_edit;
+        anchorRef.current = captureAnchor(scrollContainerRef.current);
+        await applyTranscriptEdit(library, c, edit);
+        onTranscriptEdited();
+      } else if (entry.inverse_replace) {
+        anchorRef.current = captureAnchor(scrollContainerRef.current);
+        // Note: trust-scope undo cannot remove the term from user_context via
+        // the existing apply_library_replace API. v1 leaves the term in
+        // user_context on undo (a known minor leak; documented in PR notes).
+        await applyLibraryReplace(library, entry.inverse_replace.old_tokens, entry.inverse_replace.new_tokens, false);
+      }
+      undoRef.current = null;
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
     }
   }, [library, scrollContainerRef, onTranscriptEdited]);
 

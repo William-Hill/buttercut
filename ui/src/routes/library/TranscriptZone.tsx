@@ -1,9 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import {
-  applyTranscriptEdit,
-  findTranscriptMatches,
-  getClipTranscripts,
-} from "../../ipc/sidecar";
+import { findTranscriptMatches, getClipTranscripts } from "../../ipc/sidecar";
 import type { ClipTranscripts } from "./types";
 import { formatTimestamp, interleave, InterleavedRow } from "./interleave";
 import EditPopover from "./EditPopover";
@@ -16,6 +12,8 @@ interface Props {
   library: string;
   video: string | null;
   onSeek: (seconds: number) => void;
+  /** Switch active clip (e.g. when jumping to a find/replace match in another clip). */
+  onClipChange?: (filename: string) => void;
 }
 
 type LoadState =
@@ -36,12 +34,13 @@ function matchesActive(state: LoadState, library: string, video: string | null):
   return state.library === library && state.video === video;
 }
 
-export default function TranscriptZone({ library, video, onSeek }: Props) {
+export default function TranscriptZone({ library, video, onSeek, onClipChange }: Props) {
   const [state, setState] = useState<LoadState>({ kind: "idle" });
   const [popover, setPopover] = useState<PopoverState | null>(null);
   const [findOpen, setFindOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const refetchTokenRef = useRef(0);
+  const scrollPendingRef = useRef<FinderMatch | null>(null);
 
   const refetch = useCallback(() => {
     if (!video) return;
@@ -64,8 +63,17 @@ export default function TranscriptZone({ library, video, onSeek }: Props) {
 
   // Restore scroll anchor after each refetch's re-render.
   useLayoutEffect(() => {
-    if (state.kind === "ready") editor.restoreAnchor();
-  }, [state.kind === "ready" ? state.revision : 0, editor]);
+    if (state.kind !== "ready") return;
+    const pending = scrollPendingRef.current;
+    if (pending && video && pending.clip === video) {
+      const sel = `[data-segment="${pending.segment_index}"][data-word-index="${pending.word_index}"]`;
+      const el = containerRef.current?.querySelector<HTMLElement>(sel);
+      el?.scrollIntoView({ block: "center", behavior: "smooth" });
+      scrollPendingRef.current = null;
+      return;
+    }
+    editor.restoreAnchor();
+  }, [state.kind === "ready" ? state.revision : 0, video, editor, state.kind]);
 
   // ⌘F opens find/replace.
   useEffect(() => {
@@ -137,21 +145,20 @@ export default function TranscriptZone({ library, video, onSeek }: Props) {
     setPopover(null);
   };
 
-  const fetchMatchCount = async (token: string) => {
+  const fetchMatchCount = useCallback(async (token: string) => {
     const r = await findTranscriptMatches(library, [token], "library");
     const matches = r.matches.length;
     const clips = new Set(r.matches.map((m) => m.clip)).size;
     return { matches, clips };
-  };
+  }, [library]);
 
   const applyClipReplaceFromPanel = async (clipName: string, m: FinderMatch, newTokens: string[]) => {
-    await applyTranscriptEdit(library, clipName, {
+    await editor.editClipScope(clipName, {
       segment_index: m.segment_index,
       word_index: m.word_index,
       old_tokens: m.matched_tokens,
       new_tokens: newTokens,
     });
-    refetch();
   };
 
   const applyLibraryReplaceFromPanel = async (oldTokens: string[], newTokens: string[]) => {
@@ -159,6 +166,11 @@ export default function TranscriptZone({ library, video, onSeek }: Props) {
   };
 
   const onSelectMatch = (m: FinderMatch) => {
+    if (video && m.clip !== video) {
+      scrollPendingRef.current = m;
+      onClipChange?.(m.clip);
+      return;
+    }
     const sel = `[data-segment="${m.segment_index}"][data-word-index="${m.word_index}"]`;
     const el = containerRef.current?.querySelector<HTMLElement>(sel);
     el?.scrollIntoView({ block: "center", behavior: "smooth" });

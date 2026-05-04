@@ -68,7 +68,7 @@ export default function FindReplacePanel(props: FindReplacePanelProps) {
       <ul className="find-replace__matches">
         {matches.map((m, i) => (
           <li key={`${m.clip}:${m.segment_index}:${m.word_index}:${i}`}>
-            <button onClick={() => onSelectMatch(m)} disabled={scope === "library" && m.clip !== clip}>
+            <button type="button" onClick={() => onSelectMatch(m)}>
               <span className="find-replace__clip">{m.clip}</span>
               <span className="find-replace__snippet">{m.context_snippet}</span>
             </button>

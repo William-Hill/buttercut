@@ -81,6 +81,19 @@ RSpec.describe ButtercutUiSidecar::LibraryReplacer do
       end
     end
 
+    it "skips trust user_context append when the term already exists as a full line" do
+      with_lib(user_context: "Tenderloin\n") do |root, lib_dir|
+        described_class.apply(
+          libraries_root: root, library: "demo",
+          old_tokens: ["Tenderlohn"], new_tokens: ["Tenderloin"], trust: true,
+          notifier: notifier
+        )
+
+        yaml = YAML.safe_load(File.read(File.join(lib_dir, "library.yaml")))
+        expect(yaml["user_context"].lines.map(&:strip).reject(&:empty?)).to eq(["Tenderloin"])
+      end
+    end
+
     it "appends to user_context when trust=true (idempotent)" do
       with_lib do |root, lib_dir|
         described_class.apply(
@@ -145,6 +158,20 @@ RSpec.describe ButtercutUiSidecar::LibraryReplacer do
         )
         expect(result[:edit_count]).to eq(0)
         expect(result[:affected_clips]).to be_empty
+      end
+    end
+
+    it "applies using per-match casing from the transcript (finder is case-insensitive)" do
+      with_lib do |root, lib_dir|
+        result = described_class.apply(
+          libraries_root: root, library: "demo",
+          old_tokens: ["tenderlohn"], new_tokens: ["Tenderloin"], trust: false,
+          notifier: notifier
+        )
+
+        expect(result[:edit_count]).to eq(2)
+        a = JSON.parse(File.read(File.join(lib_dir, "transcripts", "a.json")))
+        expect(a["segments"][0]["words"][1]["word"]).to eq("Tenderloin")
       end
     end
 

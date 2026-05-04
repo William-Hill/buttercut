@@ -67,6 +67,7 @@ export default function Library({ name }: { name: string }) {
             const v = videoRef.current;
             if (v) v.currentTime = seconds;
           }}
+          onClipChange={(filename) => setState({ kind: "ready", library: state.library, selected: filename })}
         />
       </div>
     </main>

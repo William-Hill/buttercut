@@ -7,6 +7,14 @@ use std::path::{Path, PathBuf};
 use serde_json::{json, Value};
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
+fn sidecar_error_payload(e: sidecar::SidecarError) -> String {
+    let v = match e {
+        sidecar::SidecarError::Rpc { code, message } => json!({ "code": code, "message": message }),
+        err => json!({ "code": null, "message": err.to_string() }),
+    };
+    serde_json::to_string(&v).unwrap_or_else(|_| "unknown sidecar error".into())
+}
+
 #[tauri::command]
 async fn list_libraries() -> Result<Value, String> {
     sidecar::call("list_libraries", json!({})).await.map_err(|e| e.to_string())
@@ -107,7 +115,7 @@ async fn apply_transcript_edit(library: String, clip: String, edit: Value) -> Re
         json!({ "library": library, "clip": clip, "edit": edit }),
     )
     .await
-    .map_err(|e| e.to_string())
+    .map_err(sidecar_error_payload)
 }
 
 #[tauri::command]
@@ -122,7 +130,7 @@ async fn find_transcript_matches(
         json!({ "library": library, "tokens": tokens, "scope": scope, "clip": clip }),
     )
     .await
-    .map_err(|e| e.to_string())
+    .map_err(sidecar_error_payload)
 }
 
 #[tauri::command]
@@ -142,7 +150,7 @@ async fn apply_library_replace(
         }),
     )
     .await
-    .map_err(|e| e.to_string())
+    .map_err(sidecar_error_payload)
 }
 
 #[tauri::command]

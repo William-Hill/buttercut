@@ -32,9 +32,11 @@ export default function EditPopover(props: EditPopoverProps) {
   useEffect(() => {
     if (scope === "clip") { setMatchInfo(null); return; }
     let cancelled = false;
-    fetchMatchCount(currentToken).then((r) => { if (!cancelled) setMatchInfo(r); });
+    fetchMatchCount(value)
+      .then((r) => { if (!cancelled) setMatchInfo(r); })
+      .catch(() => { if (!cancelled) setMatchInfo(null); });
     return () => { cancelled = true; };
-  }, [scope, currentToken, fetchMatchCount]);
+  }, [scope, value, fetchMatchCount]);
 
   const canSubmit = validation.valid && !busy && value !== currentToken;
 

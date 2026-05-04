@@ -143,6 +143,42 @@ RSpec.describe ButtercutUiSidecar::TranscriptEditor do
       end
     end
 
+    it "updates the correct occurrence when the same token repeats" do
+      with_lib do |root, lib_dir|
+        LibraryFixture.write_whisperx_transcript(lib_dir, "a.json", segments: [
+          {
+            start: 0.0, end: 1.0, text: " foo foo bar",
+            words: [
+              { word: "foo", start: 0.0, end: 0.2 },
+              { word: "foo", start: 0.21, end: 0.4 },
+              { word: "bar", start: 0.41, end: 1.0 }
+            ]
+          }
+        ])
+
+        described_class.apply(
+          libraries_root: root, library: "demo", clip: "a.json",
+          edit: { segment_index: 0, word_index: 1, old_tokens: ["foo"], new_tokens: ["baz"] }
+        )
+
+        data = read_transcript(lib_dir)
+        expect(data["segments"][0]["words"].map { |w| w["word"] }).to eq(%w[foo baz bar])
+        expect(data["segments"][0]["text"]).to eq(" foo baz bar")
+      end
+    end
+
+    it "rejects clip transcript names that escape the transcripts directory" do
+      with_lib do |root, lib_dir|
+        write_transcript(lib_dir)
+        expect {
+          described_class.apply(
+            libraries_root: root, library: "demo", clip: "../a.json",
+            edit: { segment_index: 0, word_index: 0, old_tokens: ["ride"], new_tokens: ["walk"] }
+          )
+        }.to raise_error(ArgumentError, /invalid clip/)
+      end
+    end
+
     it "tolerates transcripts without a top-level word_segments array" do
       with_lib do |root, lib_dir|
         # write a payload without word_segments

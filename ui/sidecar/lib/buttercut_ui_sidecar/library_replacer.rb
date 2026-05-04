@@ -66,7 +66,7 @@ module ButtercutUiSidecar
               edit: {
                 segment_index: m[:segment_index],
                 word_index: m[:word_index],
-                old_tokens: @old_tokens,
+                old_tokens: m[:matched_tokens],
                 new_tokens: @new_tokens
               }
             )
@@ -93,9 +93,10 @@ module ButtercutUiSidecar
       data = YAML.safe_load(yaml_path.read, permitted_classes: [Date, Time], aliases: true) || {}
       term = @new_tokens.join(" ")
       existing = (data["user_context"] || "").to_s
-      return if existing.downcase.split(/\W+/).include?(term.downcase)
+      existing_terms = existing.lines.map { |l| l.strip.downcase }.reject(&:empty?)
+      return if existing_terms.include?(term.downcase)
 
-      data["user_context"] = existing.empty? ? term : "#{existing}\n#{term}"
+      data["user_context"] = existing.strip.empty? ? term : "#{existing.rstrip}\n#{term}"
       tmp_path = "#{yaml_path}.tmp"
       File.write(tmp_path, YAML.dump(data))
       File.rename(tmp_path, yaml_path.to_s)

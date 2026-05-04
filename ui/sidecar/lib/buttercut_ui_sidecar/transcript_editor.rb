@@ -25,7 +25,7 @@ module ButtercutUiSidecar
       raise ArgumentError, "old_tokens required" if edit[:old_tokens].nil? || edit[:old_tokens].empty?
       raise ArgumentError, "new_tokens required" if edit[:new_tokens].nil? || edit[:new_tokens].empty?
 
-      @path = Pathname.new(libraries_root).join(library, "transcripts", clip)
+      @path = resolve_transcript_path(libraries_root, library, clip)
       @segment_index = edit[:segment_index]
       @word_index = edit[:word_index]
       @old_tokens = edit[:old_tokens]
@@ -61,22 +61,57 @@ module ButtercutUiSidecar
 
     private
 
+    # Mirrors buttercut_ui_sidecar.rb #library_dir — rejects path traversal in
+    # library / clip so RPC cannot read/write outside <root>/<library>/transcripts/.
+    def resolve_transcript_path(libraries_root, library, clip)
+      root = Pathname.new(libraries_root).expand_path
+      root = Pathname.new(File.realpath(root.to_s)) if root.directory?
+
+      clip_bn = safe_transcript_basename(clip)
+
+      candidate = root.join(library)
+      lib_dir = if candidate.directory?
+        Pathname.new(File.realpath(candidate.to_s))
+      else
+        candidate.expand_path
+      end
+      root_prefix = root.to_s + File::SEPARATOR
+      unless lib_dir.to_s.start_with?(root_prefix)
+        raise ArgumentError, "invalid library name: #{library}"
+      end
+
+      transcripts_dir = lib_dir.join("transcripts")
+      path = transcripts_dir.join(clip_bn)
+      td_prefix = transcripts_dir.to_s + File::SEPARATOR
+      unless path.to_s.start_with?(td_prefix)
+        raise ArgumentError, "invalid transcript path for clip: #{clip.inspect}"
+      end
+
+      path
+    end
+
+    def safe_transcript_basename(clip)
+      s = clip.to_s
+      bn = File.basename(s)
+      raise ArgumentError, "invalid clip transcript name" if bn.empty? || bn == "." || bn == ".."
+      raise ArgumentError, "invalid clip transcript name" unless s == bn
+
+      bn
+    end
+
     def apply_to_words(words)
       @new_tokens.each_with_index do |new_word, i|
         words[@word_index + i]["word"] = new_word
       end
     end
 
-    # The segment's `text` is the space-joined view of its words. Replace the
-    # exact phrase rather than the bare token to avoid the "carrot" trap
-    # (substring matching corrupting unrelated occurrences).
+    # Rebuild from words[] so segment text matches the edited token window (handles
+    # repeated phrases — String#index would always hit the first). Preserve any
+    # leading whitespace WhisperX stores on segment["text"].
     def apply_to_segment_text(segment)
-      old_phrase = @old_tokens.join(" ")
-      new_phrase = @new_tokens.join(" ")
-      text = segment["text"].to_s
-      idx = text.index(old_phrase)
-      raise ArgumentError, "phrase not found in segment text: #{old_phrase.inspect}" if idx.nil?
-      segment["text"] = text[0...idx] + new_phrase + text[(idx + old_phrase.length)..]
+      words = segment["words"] || []
+      lead = segment["text"].to_s[/\A\s*/]
+      segment["text"] = "#{lead}#{words.map { |w| w["word"].to_s }.join(" ")}"
     end
 
     # The flat top-level word_segments array mirrors segments[].words[] in
@@ -93,7 +128,10 @@ module ButtercutUiSidecar
           break
         end
       end
-      return if window.nil? # leave consistent enough; spec for finder catches drift
+      if window.nil?
+        raise ArgumentError,
+              "word_segments realignment failed at segment #{@segment_index}, word #{@word_index}"
+      end
 
       @new_tokens.each_with_index do |new_word, i|
         flat[window + i]["word"] = new_word if flat[window + i]
