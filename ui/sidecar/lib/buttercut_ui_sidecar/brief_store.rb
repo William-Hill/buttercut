@@ -32,54 +32,58 @@ module ButtercutUiSidecar
       raise ArgumentError, "target_duration_seconds must be positive" if n <= 0
 
       now = Time.now.utc.iso8601(3)
-      data = read_catalog
-      rows = data["briefs"] || []
+      with_catalog_lock do
+        data = read_catalog
+        rows = data["briefs"] || []
 
-      if id && !id.to_s.empty?
-        row = rows.find { |r| r["id"] == id }
-        raise ArgumentError, "unknown brief id: #{id}" if row.nil?
+        if id && !id.to_s.empty?
+          row = rows.find { |r| r["id"] == id }
+          raise ArgumentError, "unknown brief id: #{id}" if row.nil?
 
-        row["prompt"] = prompt.to_s
-        row["target_duration_seconds"] = n
-        row["title"] = title.to_s unless title.nil?
-        row["updated_at"] = now
-      else
-        row = {
-          "id" => "b-#{SecureRandom.urlsafe_base64(9)}",
-          "parent_id" => nil,
-          "prompt" => prompt.to_s,
-          "target_duration_seconds" => n,
-          "title" => title.to_s,
-          "created_at" => now,
-          "updated_at" => now
-        }
-        rows << row
+          row["prompt"] = prompt.to_s
+          row["target_duration_seconds"] = n
+          row["title"] = title.to_s unless title.nil?
+          row["updated_at"] = now
+        else
+          row = {
+            "id" => "b-#{SecureRandom.urlsafe_base64(9)}",
+            "parent_id" => nil,
+            "prompt" => prompt.to_s,
+            "target_duration_seconds" => n,
+            "title" => title.to_s,
+            "created_at" => now,
+            "updated_at" => now
+          }
+          rows << row
+        end
+
+        write_catalog!("briefs" => rows)
+        row["id"]
       end
-
-      write_catalog!("briefs" => rows)
-      row["id"]
     end
 
     def fork(parent_id:)
       pid = parent_id.to_s
-      data = read_catalog
-      rows = data["briefs"] || []
-      parent = rows.find { |r| r["id"] == pid }
-      raise ArgumentError, "unknown parent brief: #{parent_id}" if parent.nil?
+      with_catalog_lock do
+        data = read_catalog
+        rows = data["briefs"] || []
+        parent = rows.find { |r| r["id"] == pid }
+        raise ArgumentError, "unknown parent brief: #{parent_id}" if parent.nil?
 
-      now = Time.now.utc.iso8601(3)
-      row = {
-        "id" => "b-#{SecureRandom.urlsafe_base64(9)}",
-        "parent_id" => pid,
-        "prompt" => parent["prompt"].to_s,
-        "target_duration_seconds" => Integer(parent["target_duration_seconds"]),
-        "title" => parent["title"].to_s,
-        "created_at" => now,
-        "updated_at" => now
-      }
-      rows << row
-      write_catalog!("briefs" => rows)
-      row["id"]
+        now = Time.now.utc.iso8601(3)
+        row = {
+          "id" => "b-#{SecureRandom.urlsafe_base64(9)}",
+          "parent_id" => pid,
+          "prompt" => parent["prompt"].to_s,
+          "target_duration_seconds" => Integer(parent["target_duration_seconds"]),
+          "title" => parent["title"].to_s,
+          "created_at" => now,
+          "updated_at" => now
+        }
+        rows << row
+        write_catalog!("briefs" => rows)
+        row["id"]
+      end
     end
 
     def get(id)
@@ -88,6 +92,15 @@ module ButtercutUiSidecar
     end
 
     private
+
+    def with_catalog_lock
+      @briefs_dir.mkpath
+      lock_path = @briefs_dir.join(".catalog.lock")
+      File.open(lock_path, File::CREAT | File::RDWR) do |lock_io|
+        lock_io.flock(File::LOCK_EX)
+        yield
+      end
+    end
 
     def brief_sort_epoch(value)
       Time.parse(value.to_s).to_i
@@ -102,12 +115,15 @@ module ButtercutUiSidecar
     end
 
     def write_catalog!(data)
+      tmp = nil
       raise "library directory missing: #{@lib_dir}" unless @lib_dir.directory?
 
       @briefs_dir.mkpath
-      tmp = @catalog_path.to_s + ".tmp"
+      tmp = @briefs_dir.join("catalog.#{Process.pid}.#{SecureRandom.hex(6)}.tmp")
       File.write(tmp, YAML.dump(data))
-      File.rename(tmp, @catalog_path.to_s)
+      File.rename(tmp.to_s, @catalog_path.to_s)
+    ensure
+      FileUtils.rm_f(tmp.to_s) if tmp&.to_s && File.exist?(tmp.to_s)
     end
   end
 end

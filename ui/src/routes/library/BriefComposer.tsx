@@ -29,6 +29,14 @@ export interface BriefRow {
 
 type PrereqRow = { video: string; missing: string[] };
 
+const MIN_TARGET_DURATION = 5;
+const MAX_TARGET_DURATION = 86_400;
+
+function clampTargetSeconds(raw: number): number {
+  if (!Number.isFinite(raw)) return MIN_TARGET_DURATION;
+  return Math.max(MIN_TARGET_DURATION, Math.min(MAX_TARGET_DURATION, Math.floor(raw)));
+}
+
 const ARTIFACT_PATH_KEYS: (keyof RoughcutArtifactPaths)[] = [
   "xml_path",
   "yaml_path",
@@ -85,26 +93,34 @@ export default function BriefComposer({ library }: { library: string }) {
 
   async function handleSaveBrief() {
     setError(null);
-    const { id } = await upsertBrief({
-      library,
-      prompt,
-      targetDurationSeconds: targetSeconds,
-      id: currentBriefId ?? undefined,
-    });
-    setCurrentBriefId(id);
-    await refreshBriefs();
+    try {
+      const { id } = await upsertBrief({
+        library,
+        prompt,
+        targetDurationSeconds: clampTargetSeconds(targetSeconds),
+        id: currentBriefId ?? undefined,
+      });
+      setCurrentBriefId(id);
+      await refreshBriefs();
+    } catch (e) {
+      setError(String(e));
+    }
   }
 
   async function handleFork(parentId: string) {
     setError(null);
-    const { id } = await forkBrief(library, parentId);
-    const row = briefs.find((b) => b.id === parentId);
-    setCurrentBriefId(id);
-    if (row) {
-      setPrompt(row.prompt);
-      setTargetSeconds(row.target_duration_seconds);
+    try {
+      const { id } = await forkBrief(library, parentId);
+      const row = briefs.find((b) => b.id === parentId);
+      setCurrentBriefId(id);
+      if (row) {
+        setPrompt(row.prompt);
+        setTargetSeconds(clampTargetSeconds(row.target_duration_seconds));
+      }
+      await refreshBriefs();
+    } catch (e) {
+      setError(String(e));
     }
-    await refreshBriefs();
   }
 
   async function handleGenerate() {
@@ -115,69 +131,75 @@ export default function BriefComposer({ library }: { library: string }) {
     unlistenRef.current?.();
     unlistenRef.current = null;
 
-    const key = await hasApiKey();
-    if (!key.configured) {
-      setError("Add your Anthropic API key in New Project before generating a rough cut.");
-      return;
-    }
-
-    if (!prereqOk) {
-      setError(
-        "Footage analysis is incomplete for one or more clips. Finish transcripts, visuals, and summaries first.",
-      );
-      return;
-    }
-
-    const { id: briefId } = await upsertBrief({
-      library,
-      prompt,
-      targetDurationSeconds: targetSeconds,
-      id: currentBriefId ?? undefined,
-    });
-    setCurrentBriefId(briefId);
-
-    let jobId: string;
     try {
+      const key = await hasApiKey();
+      if (!key.configured) {
+        setError("Add your Anthropic API key in New Project before generating a rough cut.");
+        return;
+      }
+
+      if (!prereqOk) {
+        setError(
+          "Footage analysis is incomplete for one or more clips. Finish transcripts, visuals, and summaries first.",
+        );
+        return;
+      }
+
+      const duration = clampTargetSeconds(targetSeconds);
+      setTargetSeconds(duration);
+
+      const { id: briefId } = await upsertBrief({
+        library,
+        prompt,
+        targetDurationSeconds: duration,
+        id: currentBriefId ?? undefined,
+      });
+      setCurrentBriefId(briefId);
+
       const started = await startRoughcut(library, briefId);
-      jobId = started.job_id;
+      const jobId = started.job_id;
+
+      activeJobIdRef.current = jobId;
+      setJobRunning(true);
+
+      const unlisten = await listenRoughcutJobEvents(jobId, (ev: RoughcutJobEvent) => {
+        switch (ev.method) {
+          case "roughcut_phase":
+            setPhaseMessage(ev.params.message ?? ev.params.phase);
+            break;
+          case "roughcut_job_done":
+            setDonePaths({
+              yaml_path: ev.params.yaml_path,
+              xml_path: ev.params.xml_path,
+              recipe_path: ev.params.recipe_path,
+              apply_path: ev.params.apply_path,
+            });
+            setClips(ev.params.clips);
+            setJobRunning(false);
+            setPhaseMessage(null);
+            activeJobIdRef.current = null;
+            disposeRoughcutListener(unlisten, unlistenRef);
+            break;
+          case "roughcut_job_failed":
+            setError(ev.params.message);
+            setJobRunning(false);
+            setPhaseMessage(null);
+            activeJobIdRef.current = null;
+            disposeRoughcutListener(unlisten, unlistenRef);
+            break;
+          default:
+            break;
+        }
+      });
+      unlistenRef.current = unlisten;
     } catch (e) {
       setError(String(e));
-      return;
+      setJobRunning(false);
+      setPhaseMessage(null);
+      activeJobIdRef.current = null;
+      unlistenRef.current?.();
+      unlistenRef.current = null;
     }
-
-    activeJobIdRef.current = jobId;
-    setJobRunning(true);
-
-    const unlisten = await listenRoughcutJobEvents(jobId, (ev: RoughcutJobEvent) => {
-      switch (ev.method) {
-        case "roughcut_phase":
-          setPhaseMessage(ev.params.message ?? ev.params.phase);
-          break;
-        case "roughcut_job_done":
-          setDonePaths({
-            yaml_path: ev.params.yaml_path,
-            xml_path: ev.params.xml_path,
-            recipe_path: ev.params.recipe_path,
-            apply_path: ev.params.apply_path,
-          });
-          setClips(ev.params.clips);
-          setJobRunning(false);
-          setPhaseMessage(null);
-          activeJobIdRef.current = null;
-          disposeRoughcutListener(unlisten, unlistenRef);
-          break;
-        case "roughcut_job_failed":
-          setError(ev.params.message);
-          setJobRunning(false);
-          setPhaseMessage(null);
-          activeJobIdRef.current = null;
-          disposeRoughcutListener(unlisten, unlistenRef);
-          break;
-        default:
-          break;
-      }
-    });
-    unlistenRef.current = unlisten;
   }
 
   function handleCancelJob() {
@@ -233,7 +255,11 @@ export default function BriefComposer({ library }: { library: string }) {
             min={5}
             max={86_400}
             value={targetSeconds}
-            onChange={(e) => setTargetSeconds(Number(e.target.value) || 0)}
+            onChange={(e) => {
+              const raw = Number(e.target.value);
+              if (!Number.isFinite(raw)) return;
+              setTargetSeconds(clampTargetSeconds(raw));
+            }}
           />
 
           <div className="brief-composer__actions">
@@ -243,7 +269,7 @@ export default function BriefComposer({ library }: { library: string }) {
             <button
               type="button"
               className="brief-composer__btn brief-composer__btn--primary"
-              disabled={jobRunning || !prompt.trim()}
+              disabled={jobRunning || !prompt.trim() || targetSeconds < MIN_TARGET_DURATION}
               onClick={() => void handleGenerate()}
             >
               {jobRunning ? "Generating…" : "Generate"}
@@ -269,7 +295,7 @@ export default function BriefComposer({ library }: { library: string }) {
                   onClick={() => {
                     setCurrentBriefId(b.id);
                     setPrompt(b.prompt);
-                    setTargetSeconds(b.target_duration_seconds);
+                    setTargetSeconds(clampTargetSeconds(b.target_duration_seconds));
                   }}
                 >
                   Load

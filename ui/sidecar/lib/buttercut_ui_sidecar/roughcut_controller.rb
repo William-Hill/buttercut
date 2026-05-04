@@ -4,6 +4,7 @@ require "json"
 require "open3"
 require "pathname"
 require "securerandom"
+require "set"
 require "time"
 require "yaml"
 
@@ -35,7 +36,7 @@ module ButtercutUiSidecar
         fn = v["visual_transcript"]
         next unless Presence.present?(fn)
 
-        path = lib_dir.join("transcripts", fn.to_s)
+        path = safe_visual_transcript_path(lib_dir, fn)
         next unless path.file?
 
         obj = JSON.parse(path.read)
@@ -43,6 +44,32 @@ module ButtercutUiSidecar
         lines << JSON.generate(obj)
       end
       lines.join("\n") + "\n"
+    end
+
+    # Reject absolute paths and directory traversal in library.yaml visual_transcript refs.
+    def self.safe_visual_transcript_path(lib_dir, fn)
+      s = fn.to_s
+      raise "invalid_visual_transcript_ref:#{fn}" if Pathname.new(s).absolute?
+      raise "invalid_visual_transcript_ref:#{fn}" if s != File.basename(s)
+
+      transcripts_dir = lib_dir.join("transcripts").expand_path
+      path = transcripts_dir.join(s).expand_path
+      unless path.to_s.start_with?(transcripts_dir.to_s + File::SEPARATOR)
+        raise "invalid_visual_transcript_ref:#{fn}"
+      end
+
+      path
+    end
+
+    def self.video_basenames(library_data)
+      (library_data["videos"] || []).map { |v| File.basename(v["path"].to_s) }.to_set
+    end
+
+    def self.valid_clip_timecode?(tc)
+      parts = tc.to_s.split(":")
+      return false unless parts.length == 3
+
+      parts.all? { |p| p.match?(/\A\d+(\.\d+)?\z/) }
     end
 
     def self.timecode_to_seconds(tc)
@@ -153,7 +180,7 @@ module ButtercutUiSidecar
       yaml_text = extract_yaml_fence(body)
       rough = YAML.safe_load(yaml_text, permitted_classes: [Date, Time, Symbol]) || {}
       (rough["clips"] || []).each { |c| c["dialogue"] = "" unless c.key?("dialogue") }
-      validate_roughcut_shape!(rough)
+      validate_roughcut_shape!(rough, library_data)
 
       enrich_metadata!(rough)
       ts = Time.now.utc.strftime("%Y%m%d_%H%M%S")
@@ -272,9 +299,11 @@ module ButtercutUiSidecar
       body.strip
     end
 
-    def validate_roughcut_shape!(rough)
+    def validate_roughcut_shape!(rough, library_data)
       clips = rough["clips"]
       raise "roughcut_missing_clips" unless clips.is_a?(Array) && !clips.empty?
+
+      allowed = self.class.video_basenames(library_data)
 
       clips.each_with_index do |c, i|
         raise "clip #{i} missing source_file" unless Presence.present?(c["source_file"])
@@ -282,6 +311,17 @@ module ButtercutUiSidecar
         raise "clip #{i} missing out_point" unless Presence.present?(c["out_point"])
         raise "clip #{i} missing dialogue" unless c.key?("dialogue")
         raise "clip #{i} missing visual_description" unless Presence.present?(c["visual_description"])
+
+        base = File.basename(c["source_file"].to_s)
+        raise "clip #{i} invalid_source_file" unless allowed.include?(base)
+
+        unless self.class.valid_clip_timecode?(c["in_point"]) && self.class.valid_clip_timecode?(c["out_point"])
+          raise "clip #{i} invalid_timecode"
+        end
+
+        t_in = self.class.timecode_to_seconds(c["in_point"])
+        t_out = self.class.timecode_to_seconds(c["out_point"])
+        raise "clip #{i} invalid_time_range" unless t_out > t_in
       end
     end
 

@@ -32,7 +32,7 @@ Terminal-free rough cut: user writes a plain-language brief and target duration,
 
 | Method | Params | Result |
 |--------|--------|--------|
-| `roughcut_prerequisites` | `library` | `{ "ok": bool, "missing": [ { "video", "missing" } ] }` — `missing` lists which of `transcript`, `visual_transcript`, `summary` are absent per basename. |
+| `roughcut_prerequisites` | `library` | `{ "ok": bool, "missing": [ { "video": string, "missing": string[] } ] }` — each element maps one **video basename** (same as `library.yaml` `path` basename) to `missing`, a subset of `transcript` / `visual_transcript` / `summary` still absent for that file. Example: `{ "ok": false, "missing": [ { "video": "clip.mov", "missing": ["summary"] } ] }`. |
 | `list_briefs` | `library` | `{ "briefs": [ { id, parent_id, prompt, target_duration_seconds, title, created_at, updated_at } ] }` |
 | `upsert_brief` | `library`, `prompt`, `target_duration_seconds`, optional `id`, optional `title` | `{ "id" }` |
 | `fork_brief` | `library`, `parent_id` | `{ "id" }` |
@@ -52,7 +52,7 @@ Terminal-free rough cut: user writes a plain-language brief and target duration,
 ## Generate → four artifacts
 
 1. Model returns rough cut **YAML** (extracted from a ` ```yaml ` fenced block).
-2. Sidecar writes `libraries/<lib>/roughcuts/<stem>_<timestamp>.yaml` with normalized `metadata.created_date` and `metadata.total_duration`.
+2. Sidecar writes `libraries/<lib>/roughcuts/<stem>.yaml` (and sibling XML / recipe / apply script with the same stem) where **`stem` = `roughcut_ui_<UTC_YYYYMMDD_HHMMSS>`** (a generated UI roughcut id, not the brief id or library slug), with normalized `metadata.created_date` and `metadata.total_duration`.
 3. Invokes the existing exporter (unchanged):
 
    `bundle exec ruby .claude/skills/roughcut/export_to_fcpxml.rb <yaml> <xml_out> <editor>`
@@ -65,7 +65,7 @@ Terminal-free rough cut: user writes a plain-language brief and target duration,
 
 ## Limits
 
-- Combined visual transcript NDJSON is capped (~900k bytes). Above that, the RPC fails with a clear message suggesting CLI / smaller libraries for now.
+- Combined visual transcript NDJSON is capped at **900000 bytes** (same constant as `RoughcutController::COMBINED_TRANSCRIPT_MAX_BYTES`). Above that, the RPC fails with a clear message suggesting CLI / smaller libraries for now.
 
 ## UI (minimal)
 

@@ -157,4 +157,53 @@ RSpec.describe ButtercutUiSidecar::RoughcutController do
       expect(controller.send(:extract_yaml_fence, "  clips: []\n")).to eq("clips: []")
     end
   end
+
+  describe ".safe_visual_transcript_path" do
+    it "rejects absolute paths and path traversal" do
+      lib = Pathname.new("/tmp/demo_lib")
+      expect { described_class.safe_visual_transcript_path(lib, "/etc/passwd") }.to raise_error(/invalid_visual_transcript_ref/)
+      expect { described_class.safe_visual_transcript_path(lib, "..#{File::SEPARATOR}x.json") }.to raise_error(/invalid_visual_transcript_ref/)
+    end
+
+    it "returns a path under transcripts for a basename" do
+      lib = Pathname.new("/tmp/demo_lib")
+      p = described_class.safe_visual_transcript_path(lib, "foo.json")
+      expect(p.to_s).to end_with(File.join("transcripts", "foo.json"))
+    end
+  end
+
+  describe "#validate_roughcut_shape!" do
+    let(:controller) { described_class.allocate }
+    let(:library_data) { { "videos" => [{ "path" => "/vol/a.mp4" }] } }
+
+    it "rejects source_file not in the library" do
+      rough = {
+        "clips" => [
+          {
+            "source_file" => "other.mp4",
+            "in_point" => "00:00:00.00",
+            "out_point" => "00:00:01.00",
+            "dialogue" => "",
+            "visual_description" => "x"
+          }
+        ]
+      }
+      expect { controller.send(:validate_roughcut_shape!, rough, library_data) }.to raise_error(/invalid_source_file/)
+    end
+
+    it "rejects out_point <= in_point" do
+      rough = {
+        "clips" => [
+          {
+            "source_file" => "a.mp4",
+            "in_point" => "00:00:05.00",
+            "out_point" => "00:00:01.00",
+            "dialogue" => "",
+            "visual_description" => "x"
+          }
+        ]
+      }
+      expect { controller.send(:validate_roughcut_shape!, rough, library_data) }.to raise_error(/invalid_time_range/)
+    end
+  end
 end
