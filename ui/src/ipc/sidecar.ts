@@ -90,3 +90,59 @@ export async function cancelJob(jobId: string): Promise<void> {
 export async function openNewProjectWindow(): Promise<void> {
   await invoke("open_new_project_window");
 }
+
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import type {
+  TranscriptEdit,
+  FinderResult,
+  ApplyEditResult,
+  ApplyLibraryReplaceResult,
+  TranscriptEditedEvent,
+} from "../routes/library/editorTypes";
+
+export async function applyTranscriptEdit(
+  library: string,
+  clip: string,
+  edit: TranscriptEdit
+): Promise<ApplyEditResult> {
+  return invoke<ApplyEditResult>("apply_transcript_edit", { library, clip, edit });
+}
+
+export async function findTranscriptMatches(
+  library: string,
+  tokens: string[],
+  scope: "clip" | "library",
+  clip?: string
+): Promise<FinderResult> {
+  return invoke<FinderResult>("find_transcript_matches", { library, tokens, scope, clip });
+}
+
+export async function applyLibraryReplace(
+  library: string,
+  oldTokens: string[],
+  newTokens: string[],
+  trust: boolean
+): Promise<ApplyLibraryReplaceResult> {
+  return invoke<ApplyLibraryReplaceResult>("apply_library_replace", {
+    library,
+    oldTokens,
+    newTokens,
+    trust,
+  });
+}
+
+// Listens for sidecar `transcript_edited` notifications. The notification
+// arrives on the global "sidecar-event" channel (no job_id). Caller must
+// filter by (library, clip).
+export async function listenTranscriptEdited(
+  handler: (e: TranscriptEditedEvent) => void
+): Promise<UnlistenFn> {
+  return listen<{ method: string; params: TranscriptEditedEvent }>(
+    "sidecar-event",
+    (event) => {
+      if (event.payload.method === "transcript_edited") {
+        handler(event.payload.params);
+      }
+    }
+  );
+}

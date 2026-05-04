@@ -22,3 +22,6 @@ IMPROVEMENTS.md
 
 # Claude Code runtime
 .claude/scheduled_tasks.lock
+
+# Superpowers brainstorm visual companion sessions
+.superpowers/

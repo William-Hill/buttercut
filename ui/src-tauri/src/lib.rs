@@ -7,6 +7,14 @@ use std::path::{Path, PathBuf};
 use serde_json::{json, Value};
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
+fn sidecar_error_payload(e: sidecar::SidecarError) -> String {
+    let v = match e {
+        sidecar::SidecarError::Rpc { code, message } => json!({ "code": code, "message": message }),
+        err => json!({ "code": null, "message": err.to_string() }),
+    };
+    serde_json::to_string(&v).unwrap_or_else(|_| "unknown sidecar error".into())
+}
+
 #[tauri::command]
 async fn list_libraries() -> Result<Value, String> {
     sidecar::call("list_libraries", json!({})).await.map_err(|e| e.to_string())
@@ -101,6 +109,51 @@ async fn cancel_job(job_id: String) -> Result<Value, String> {
 }
 
 #[tauri::command]
+async fn apply_transcript_edit(library: String, clip: String, edit: Value) -> Result<Value, String> {
+    sidecar::call(
+        "apply_transcript_edit",
+        json!({ "library": library, "clip": clip, "edit": edit }),
+    )
+    .await
+    .map_err(sidecar_error_payload)
+}
+
+#[tauri::command]
+async fn find_transcript_matches(
+    library: String,
+    tokens: Vec<String>,
+    scope: String,
+    clip: Option<String>,
+) -> Result<Value, String> {
+    sidecar::call(
+        "find_transcript_matches",
+        json!({ "library": library, "tokens": tokens, "scope": scope, "clip": clip }),
+    )
+    .await
+    .map_err(sidecar_error_payload)
+}
+
+#[tauri::command]
+async fn apply_library_replace(
+    library: String,
+    old_tokens: Vec<String>,
+    new_tokens: Vec<String>,
+    trust: bool,
+) -> Result<Value, String> {
+    sidecar::call(
+        "apply_library_replace",
+        json!({
+            "library": library,
+            "old_tokens": old_tokens,
+            "new_tokens": new_tokens,
+            "trust": trust
+        }),
+    )
+    .await
+    .map_err(sidecar_error_payload)
+}
+
+#[tauri::command]
 async fn open_new_project_window(app: tauri::AppHandle) -> Result<(), String> {
     let label = "new-project";
     if let Some(existing) = app.get_webview_window(label) {
@@ -189,7 +242,10 @@ pub fn run() {
             has_api_key,
             set_api_key,
             start_analysis,
-            cancel_job
+            cancel_job,
+            apply_transcript_edit,
+            find_transcript_matches,
+            apply_library_replace
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
