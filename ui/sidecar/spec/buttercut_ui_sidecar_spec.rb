@@ -368,4 +368,60 @@ RSpec.describe ButtercutUiSidecar do
       end
     end
   end
+
+  describe "export_roughcut_artifacts" do
+    it "returns exported artifact paths" do
+      Dir.mktmpdir do |root|
+        LibraryFixture.build(root, name: "demo", videos: [])
+        yaml_path = File.join(root, "demo", "roughcuts", "roughcut_ui_1.yaml")
+        FileUtils.mkdir_p(File.dirname(yaml_path))
+        File.write(yaml_path, "clips: []\n")
+
+        fake = instance_double(ButtercutUiSidecar::RoughcutExporter)
+        allow(ButtercutUiSidecar::RoughcutExporter).to receive(:new).and_return(fake)
+        allow(fake).to receive(:export).and_return({
+          yaml_path: yaml_path,
+          xml_path: File.join(root, "demo", "roughcuts", "delivery.xml"),
+          recipe_path: File.join(root, "demo", "roughcuts", "delivery.recipe.json"),
+          apply_path: File.join(root, "demo", "roughcuts", "delivery_apply.py"),
+          format: "resolve"
+        })
+
+        result = call(root, "export_roughcut_artifacts", {
+          library: "demo",
+          yaml_path: yaml_path,
+          format: "resolve",
+          filename: "delivery"
+        })
+
+        expect(result["error"]).to be_nil
+        expect(result.dig("result", "format")).to eq("resolve")
+      end
+    end
+  end
+
+  describe "send_to_resolve" do
+    it "returns handoff result from Resolve runner" do
+      Dir.mktmpdir do |root|
+        LibraryFixture.build(root, name: "demo", videos: [])
+        fake = instance_double(ButtercutUiSidecar::ResolveHandoff)
+        allow(ButtercutUiSidecar::ResolveHandoff).to receive(:new).and_return(fake)
+        allow(fake).to receive(:run).and_return({
+          ok: true,
+          output: "[apply_recipe] applied",
+          project_name: "Demo",
+          timeline_name: "roughcut_ui_1"
+        })
+
+        result = call(root, "send_to_resolve", {
+          library: "demo",
+          apply_path: "/tmp/a_apply.py",
+          recipe_path: "/tmp/a.recipe.json"
+        })
+
+        expect(result["error"]).to be_nil
+        expect(result.dig("result", "ok")).to be(true)
+      end
+    end
+  end
 end

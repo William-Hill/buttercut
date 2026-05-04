@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { ClipTranscripts, LibraryDetail } from "../routes/library/types";
+import type { RoughcutArtifactPaths } from "./events";
 
 export interface LibrarySummary {
   name: string;
@@ -117,6 +118,23 @@ export async function forkBrief(library: string, parentId: string): Promise<{ id
 
 export async function startRoughcut(library: string, briefId: string): Promise<{ job_id: string }> {
   return invoke("start_roughcut", { library, briefId });
+}
+
+export async function exportRoughcutArtifacts(
+  library: string,
+  yamlPath: string,
+  format: "resolve" | "premiere" | "fcpx",
+  filename?: string,
+): Promise<RoughcutArtifactPaths & { format: string }> {
+  return invoke("export_roughcut_artifacts", { library, yamlPath, format, filename: filename?.trim() || null });
+}
+
+export async function sendToResolve(
+  library: string,
+  applyPath: string,
+  recipePath: string,
+): Promise<{ ok: boolean; output: string; project_name: string; timeline_name: string }> {
+  return invoke("send_to_resolve", { library, applyPath, recipePath });
 }
 
 export async function readLibraryTextFile(path: string): Promise<string> {

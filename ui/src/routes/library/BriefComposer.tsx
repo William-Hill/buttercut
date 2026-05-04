@@ -1,13 +1,15 @@
 import type { MutableRefObject } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
 import {
   cancelJob,
+  exportRoughcutArtifacts,
   forkBrief,
   hasApiKey,
   listBriefs,
   readLibraryTextFile,
   roughcutPrerequisites,
+  sendToResolve,
   startRoughcut,
   upsertBrief,
 } from "../../ipc/sidecar";
@@ -48,6 +50,29 @@ const ARTIFACT_PATH_KEYS: (keyof RoughcutArtifactPaths)[] = [
   "recipe_path",
   "apply_path",
 ];
+const EXPORT_FORMATS = ["resolve", "premiere", "fcpx"] as const;
+type ExportFormat = (typeof EXPORT_FORMATS)[number];
+
+function dirname(path: string): string {
+  const i = path.lastIndexOf("/");
+  if (i <= 0) return path;
+  return path.slice(0, i);
+}
+
+function basenameNoExt(path: string): string {
+  const leaf = path.split("/").pop() ?? path;
+  return leaf.replace(/\.[^.]+$/, "");
+}
+
+function normalizeSidecarError(error: unknown): string {
+  const text = String(error);
+  try {
+    const parsed = JSON.parse(text) as { message?: string };
+    return parsed.message ?? text;
+  } catch {
+    return text;
+  }
+}
 
 function disposeRoughcutListener(
   unlisten: () => void,
@@ -72,6 +97,11 @@ export default function BriefComposer({ library, videos }: { library: string; vi
   const [recipe, setRecipe] = useState<RecipeJson | null>(null);
   const [playheadSec, setPlayheadSec] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [exportFormat, setExportFormat] = useState<ExportFormat>("resolve");
+  const [exportFilename, setExportFilename] = useState("");
+  const [exportBusy, setExportBusy] = useState(false);
+  const [exportStatus, setExportStatus] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
   const activeJobIdRef = useRef<string | null>(null);
   const unlistenRef = useRef<(() => void) | null>(null);
   const recipeReadTokenRef = useRef(0);
@@ -103,6 +133,11 @@ export default function BriefComposer({ library, videos }: { library: string; vi
   useEffect(() => {
     setPlayheadSec(0);
     setPlaying(false);
+    if (donePaths?.yaml_path) {
+      setExportFilename(basenameNoExt(donePaths.yaml_path));
+      setExportStatus(null);
+      setExportError(null);
+    }
   }, [donePaths?.yaml_path]);
 
   async function handleSaveBrief() {
@@ -205,6 +240,7 @@ export default function BriefComposer({ library, videos }: { library: string; vi
               });
             setJobRunning(false);
             setPhaseMessage(null);
+            setExportFormat("resolve");
             activeJobIdRef.current = null;
             disposeRoughcutListener(unlisten, unlistenRef);
             break;
@@ -238,6 +274,55 @@ export default function BriefComposer({ library, videos }: { library: string; vi
     activeJobIdRef.current = null;
     setJobRunning(false);
     setPhaseMessage(null);
+  }
+
+  async function handleExportArtifacts(format: ExportFormat): Promise<RoughcutArtifactPaths | null> {
+    if (!donePaths) return null;
+    setExportBusy(true);
+    setExportError(null);
+    setExportStatus(format === "resolve" ? "Preparing Resolve export…" : "Exporting artifacts…");
+    try {
+      const next = await exportRoughcutArtifacts(library, donePaths.yaml_path, format, exportFilename);
+      setDonePaths(next);
+      setExportFormat(format);
+      setExportStatus(`Export complete (${format.toUpperCase()}).`);
+      try {
+        const raw = await readLibraryTextFile(next.recipe_path);
+        setRecipe(parseRoughcutRecipeJson(raw));
+      } catch {
+        setRecipe(null);
+      }
+      return next;
+    } catch (e) {
+      setExportStatus(null);
+      setExportError(normalizeSidecarError(e));
+      return null;
+    } finally {
+      setExportBusy(false);
+    }
+  }
+
+  async function handleSendToResolve() {
+    if (!donePaths) return;
+    setExportError(null);
+    setExportStatus("Sending to Resolve…");
+    let target = donePaths;
+    if (exportFormat !== "resolve") {
+      const exported = await handleExportArtifacts("resolve");
+      if (!exported) return;
+      target = exported;
+    }
+
+    setExportBusy(true);
+    try {
+      const result = await sendToResolve(library, target.apply_path, target.recipe_path);
+      setExportStatus(`Applied in Resolve project "${result.project_name}" on timeline "${result.timeline_name}".`);
+    } catch (e) {
+      setExportStatus(null);
+      setExportError(normalizeSidecarError(e));
+    } finally {
+      setExportBusy(false);
+    }
   }
 
   return (
@@ -415,18 +500,81 @@ export default function BriefComposer({ library, videos }: { library: string; vi
           </table>
 
           {donePaths && (
+            <div className="brief-composer__export-sheet">
+              <h3 className="brief-composer__results-title">Export</h3>
+              <p className="brief-composer__results-lead">
+                Export uses the generated rough cut YAML as source and writes XML, recipe, and apply artifacts to the roughcuts
+                folder.
+              </p>
+              <div className="brief-composer__export-grid">
+                <label className="brief-composer__label" htmlFor="export-format">
+                  Format
+                </label>
+                <select
+                  id="export-format"
+                  className="brief-composer__input"
+                  value={exportFormat}
+                  disabled={exportBusy}
+                  onChange={(e) => setExportFormat(e.target.value as ExportFormat)}
+                >
+                  <option value="resolve">DaVinci Resolve</option>
+                  <option value="premiere">Adobe Premiere</option>
+                  <option value="fcpx">Final Cut Pro</option>
+                </select>
+                <label className="brief-composer__label" htmlFor="export-filename">
+                  Filename (no extension)
+                </label>
+                <input
+                  id="export-filename"
+                  className="brief-composer__input"
+                  value={exportFilename}
+                  disabled={exportBusy}
+                  onChange={(e) => setExportFilename(e.target.value)}
+                />
+              </div>
+              <p className="brief-composer__paths-label">Output folder: {dirname(donePaths.yaml_path)}</p>
+              <div className="brief-composer__actions">
+                <button
+                  type="button"
+                  className="brief-composer__btn"
+                  disabled={exportBusy || !exportFilename.trim()}
+                  onClick={() => void handleExportArtifacts(exportFormat)}
+                >
+                  {exportBusy ? "Working…" : `Export ${exportFormat.toUpperCase()}`}
+                </button>
+                <button
+                  type="button"
+                  className="brief-composer__btn brief-composer__btn--primary"
+                  disabled={exportBusy || !exportFilename.trim()}
+                  onClick={() => void handleSendToResolve()}
+                >
+                  Send to Resolve
+                </button>
+              </div>
+              {exportStatus && <p className="brief-composer__phase">{exportStatus}</p>}
+              {exportError && <pre className="brief-composer__error">{exportError}</pre>}
+            </div>
+          )}
+
+          {donePaths && (
             <div className="brief-composer__paths">
-              <p className="brief-composer__paths-label">Artifacts (reveal in Finder)</p>
+              <p className="brief-composer__paths-label">Artifacts</p>
               <ul>
                 {ARTIFACT_PATH_KEYS.map((key) => (
                   <li key={key}>
-                    <button
-                      type="button"
-                      className="brief-composer__linkish"
-                      onClick={() => void revealItemInDir(donePaths[key])}
-                    >
-                      {donePaths[key]}
-                    </button>
+                    <span className="brief-composer__path-text">{donePaths[key]}</span>
+                    <span className="brief-composer__path-actions">
+                      <button type="button" className="brief-composer__linkish" onClick={() => void openPath(donePaths[key])}>
+                        Open
+                      </button>
+                      <button
+                        type="button"
+                        className="brief-composer__linkish"
+                        onClick={() => void revealItemInDir(donePaths[key])}
+                      >
+                        Reveal
+                      </button>
+                    </span>
                   </li>
                 ))}
               </ul>

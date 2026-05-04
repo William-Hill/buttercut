@@ -164,6 +164,36 @@ async fn start_roughcut(library: String, brief_id: String) -> Result<Value, Stri
     .map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+async fn export_roughcut_artifacts(
+    library: String,
+    yaml_path: String,
+    format: String,
+    filename: Option<String>,
+) -> Result<Value, String> {
+    sidecar::call(
+        "export_roughcut_artifacts",
+        json!({
+            "library": library,
+            "yaml_path": yaml_path,
+            "format": format,
+            "filename": filename
+        }),
+    )
+    .await
+    .map_err(sidecar_error_payload)
+}
+
+#[tauri::command]
+async fn send_to_resolve(library: String, apply_path: String, recipe_path: String) -> Result<Value, String> {
+    sidecar::call(
+        "send_to_resolve",
+        json!({ "library": library, "apply_path": apply_path, "recipe_path": recipe_path }),
+    )
+    .await
+    .map_err(sidecar_error_payload)
+}
+
 /// Read a UTF-8 text file under the configured libraries root (for recipe.json, etc.).
 #[tauri::command]
 fn read_library_text_file(path: String) -> Result<String, String> {
@@ -340,6 +370,8 @@ pub fn run() {
             upsert_brief,
             fork_brief,
             start_roughcut,
+            export_roughcut_artifacts,
+            send_to_resolve,
             read_library_text_file
         ])
         .run(tauri::generate_context!())

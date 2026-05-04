@@ -26,6 +26,8 @@ require_relative "lib/buttercut_ui_sidecar/stages/summarize"
 require_relative "lib/buttercut_ui_sidecar/brief_store"
 require_relative "lib/buttercut_ui_sidecar/presence"
 require_relative "lib/buttercut_ui_sidecar/roughcut_controller"
+require_relative "lib/buttercut_ui_sidecar/roughcut_exporter"
+require_relative "lib/buttercut_ui_sidecar/resolve_handoff"
 
 module ButtercutUiSidecar
   def self.run(libraries_root:, io_in: $stdin, io_out: $stdout)
@@ -168,8 +170,33 @@ module ButtercutUiSidecar
         brief_catalog_fork(params)
       when "start_roughcut"
         roughcut_start(params)
+      when "export_roughcut_artifacts"
+        export_roughcut_artifacts(params)
+      when "send_to_resolve"
+        send_to_resolve(params)
       else raise UnknownMethod, "unknown method: #{method}"
       end
+    end
+
+    def export_roughcut_artifacts(params)
+      library = params.fetch("library")
+      library_dir(library)
+      exporter = ButtercutUiSidecar::RoughcutExporter.new(repo_root: @repo_root.to_s)
+      exporter.export(
+        yaml_path: params.fetch("yaml_path"),
+        format: params.fetch("format"),
+        filename: params["filename"]
+      )
+    end
+
+    def send_to_resolve(params)
+      library = params.fetch("library")
+      library_dir(library)
+      handoff = ButtercutUiSidecar::ResolveHandoff.new
+      handoff.run(
+        apply_path: params.fetch("apply_path"),
+        recipe_path: params.fetch("recipe_path")
+      )
     end
 
     def roughcut_prerequisites(name)
