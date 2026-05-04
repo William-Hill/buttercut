@@ -6,10 +6,15 @@ import {
   forkBrief,
   hasApiKey,
   listBriefs,
+  readLibraryTextFile,
   roughcutPrerequisites,
   startRoughcut,
   upsertBrief,
 } from "../../ipc/sidecar";
+import { parseRoughcutRecipeJson, type RecipeJson } from "../../lib/recipeTypes";
+import type { VideoEntry } from "./types";
+import RoughcutStagePreview from "./RoughcutStagePreview";
+import RoughcutTimeline from "./RoughcutTimeline";
 import {
   listenRoughcutJobEvents,
   type RoughcutArtifactPaths,
@@ -52,7 +57,7 @@ function disposeRoughcutListener(
   if (ref.current === unlisten) ref.current = null;
 }
 
-export default function BriefComposer({ library }: { library: string }) {
+export default function BriefComposer({ library, videos }: { library: string; videos: VideoEntry[] }) {
   const [prereqOk, setPrereqOk] = useState<boolean | null>(null);
   const [prereqMissing, setPrereqMissing] = useState<PrereqRow[]>([]);
   const [briefs, setBriefs] = useState<BriefRow[]>([]);
@@ -64,8 +69,12 @@ export default function BriefComposer({ library }: { library: string }) {
   const [error, setError] = useState<string | null>(null);
   const [donePaths, setDonePaths] = useState<RoughcutArtifactPaths | null>(null);
   const [clips, setClips] = useState<RoughcutClip[]>([]);
+  const [recipe, setRecipe] = useState<RecipeJson | null>(null);
+  const [playheadSec, setPlayheadSec] = useState(0);
+  const [playing, setPlaying] = useState(false);
   const activeJobIdRef = useRef<string | null>(null);
   const unlistenRef = useRef<(() => void) | null>(null);
+  const recipeReadTokenRef = useRef(0);
 
   const refreshBriefs = useCallback(async () => {
     const r = await listBriefs(library);
@@ -90,6 +99,11 @@ export default function BriefComposer({ library }: { library: string }) {
     },
     [],
   );
+
+  useEffect(() => {
+    setPlayheadSec(0);
+    setPlaying(false);
+  }, [donePaths?.yaml_path]);
 
   async function handleSaveBrief() {
     setError(null);
@@ -127,9 +141,14 @@ export default function BriefComposer({ library }: { library: string }) {
     setError(null);
     setDonePaths(null);
     setClips([]);
+    setRecipe(null);
+    setPlayheadSec(0);
+    setPlaying(false);
     setPhaseMessage(null);
     unlistenRef.current?.();
     unlistenRef.current = null;
+
+    const runToken = ++recipeReadTokenRef.current;
 
     try {
       const key = await hasApiKey();
@@ -175,6 +194,15 @@ export default function BriefComposer({ library }: { library: string }) {
               apply_path: ev.params.apply_path,
             });
             setClips(ev.params.clips);
+            void readLibraryTextFile(ev.params.recipe_path)
+              .then((raw) => {
+                if (recipeReadTokenRef.current !== runToken) return;
+                setRecipe(parseRoughcutRecipeJson(raw));
+              })
+              .catch(() => {
+                if (recipeReadTokenRef.current !== runToken) return;
+                setRecipe(null);
+              });
             setJobRunning(false);
             setPhaseMessage(null);
             activeJobIdRef.current = null;
@@ -319,7 +347,54 @@ export default function BriefComposer({ library }: { library: string }) {
 
       {clips.length > 0 && (
         <div className="brief-composer__results">
-          <h3 className="brief-composer__results-title">Selected clips</h3>
+          <h3 className="brief-composer__results-title">Timeline preview</h3>
+          <p className="brief-composer__results-lead">
+            Clips in story order with editorial recipe glyphs. Scrub the bar to seek the preview.
+          </p>
+          <div className="brief-composer__chips" role="toolbar" aria-label="Rough cut iterations">
+            <button
+              type="button"
+              className="brief-composer__chip brief-composer__chip--active"
+              disabled={jobRunning || !prompt.trim() || prereqOk === false}
+              onClick={() => void handleGenerate()}
+              title="Runs the same generate pipeline again (full rough cut). Trim-level diff UI is planned."
+            >
+              Regenerate
+            </button>
+            <button
+              type="button"
+              className="brief-composer__chip"
+              disabled
+              title="TODO M4b+: append a tight pacing directive to the brief, re-run model, then show clip-level diff (trim/add/remove)."
+            >
+              Make tighter
+            </button>
+            <button
+              type="button"
+              className="brief-composer__chip"
+              disabled
+              title="TODO M4b+: steer speed ramps / slow motion in YAML and surface which clips changed."
+            >
+              Lean harder into slow-mo
+            </button>
+          </div>
+          <RoughcutTimeline
+            clips={clips}
+            recipe={recipe}
+            playheadSec={playheadSec}
+            onPlayheadSecChange={setPlayheadSec}
+            onScrubStart={() => setPlaying(false)}
+          />
+          <RoughcutStagePreview
+            clips={clips}
+            videos={videos}
+            playheadSec={playheadSec}
+            onPlayheadSecChange={setPlayheadSec}
+            playing={playing}
+            onPlayingChange={setPlaying}
+          />
+
+          <h3 className="brief-composer__results-title brief-composer__results-title--sub">Selected clips</h3>
           <table className="brief-composer__table">
             <thead>
               <tr>

@@ -164,6 +164,39 @@ async fn start_roughcut(library: String, brief_id: String) -> Result<Value, Stri
     .map_err(|e| e.to_string())
 }
 
+/// Read a UTF-8 text file under the configured libraries root (for recipe.json, etc.).
+#[tauri::command]
+fn read_library_text_file(path: String) -> Result<String, String> {
+    let root = resolve_libraries_root().canonicalize().map_err(|e| e.to_string())?;
+    let candidate = {
+        let p = PathBuf::from(&path);
+        if p.is_absolute() {
+            p
+        } else {
+            root.join(p)
+        }
+    };
+    let abs = candidate.canonicalize().map_err(|e| e.to_string())?;
+    if !abs.starts_with(&root) {
+        return Err("path outside libraries root".into());
+    }
+    if !abs.is_file() {
+        return Err("not a file".into());
+    }
+    std::fs::read_to_string(&abs).map_err(|e| e.to_string())
+}
+
+fn resolve_libraries_root() -> PathBuf {
+    std::env::var("BUTTERCUT_LIBRARIES_ROOT")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| {
+            let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+            let ui_dir = manifest_dir.parent().expect("ui dir");
+            let repo_root = ui_dir.parent().expect("repo root");
+            repo_root.join("libraries")
+        })
+}
+
 #[tauri::command]
 async fn apply_transcript_edit(library: String, clip: String, edit: Value) -> Result<Value, String> {
     sidecar::call(
@@ -306,7 +339,8 @@ pub fn run() {
             list_briefs,
             upsert_brief,
             fork_brief,
-            start_roughcut
+            start_roughcut,
+            read_library_text_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

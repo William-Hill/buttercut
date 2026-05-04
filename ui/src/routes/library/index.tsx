@@ -93,7 +93,7 @@ export default function Library({ name }: { name: string }) {
             />
           </div>
         ) : (
-          <BriefComposer library={state.library.name} />
+          <BriefComposer library={state.library.name} videos={state.library.videos} />
         )}
       </div>
     </main>
