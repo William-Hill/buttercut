@@ -143,13 +143,13 @@ RSpec.describe ButtercutUiSidecar::TranscriptEditor do
       end
     end
 
-    it "updates the correct occurrence when the same token repeats" do
+    it "updates the correct occurrence when the same token repeats (mixed-case)" do
       with_lib do |root, lib_dir|
         LibraryFixture.write_whisperx_transcript(lib_dir, "a.json", segments: [
           {
-            start: 0.0, end: 1.0, text: " foo foo bar",
+            start: 0.0, end: 1.0, text: " Foo foo bar",
             words: [
-              { word: "foo", start: 0.0, end: 0.2 },
+              { word: "Foo", start: 0.0, end: 0.2 },
               { word: "foo", start: 0.21, end: 0.4 },
               { word: "bar", start: 0.41, end: 1.0 }
             ]
@@ -158,12 +158,12 @@ RSpec.describe ButtercutUiSidecar::TranscriptEditor do
 
         described_class.apply(
           libraries_root: root, library: "demo", clip: "a.json",
-          edit: { segment_index: 0, word_index: 1, old_tokens: ["foo"], new_tokens: ["baz"] }
+          edit: { segment_index: 0, word_index: 1, old_tokens: ["foo"], new_tokens: ["BaZ"] }
         )
 
         data = read_transcript(lib_dir)
-        expect(data["segments"][0]["words"].map { |w| w["word"] }).to eq(%w[foo baz bar])
-        expect(data["segments"][0]["text"]).to eq(" foo baz bar")
+        expect(data["segments"][0]["words"].map { |w| w["word"] }).to eq(["Foo", "BaZ", "bar"])
+        expect(data["segments"][0]["text"]).to eq(" Foo BaZ bar")
       end
     end
 
