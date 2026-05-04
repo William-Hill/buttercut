@@ -109,6 +109,62 @@ async fn cancel_job(job_id: String) -> Result<Value, String> {
 }
 
 #[tauri::command]
+async fn roughcut_prerequisites(library: String) -> Result<Value, String> {
+    sidecar::call("roughcut_prerequisites", json!({ "library": library }))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn list_briefs(library: String) -> Result<Value, String> {
+    sidecar::call("list_briefs", json!({ "library": library }))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn upsert_brief(
+    library: String,
+    prompt: String,
+    target_duration_seconds: u32,
+    id: Option<String>,
+    title: Option<String>,
+) -> Result<Value, String> {
+    sidecar::call(
+        "upsert_brief",
+        json!({
+            "library": library,
+            "prompt": prompt,
+            "target_duration_seconds": target_duration_seconds,
+            "id": id,
+            "title": title
+        }),
+    )
+    .await
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn fork_brief(library: String, parent_id: String) -> Result<Value, String> {
+    sidecar::call(
+        "fork_brief",
+        json!({ "library": library, "parent_id": parent_id }),
+    )
+    .await
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn start_roughcut(library: String, brief_id: String) -> Result<Value, String> {
+    sidecar::call(
+        "start_roughcut",
+        json!({ "library": library, "brief_id": brief_id }),
+    )
+    .await
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn apply_transcript_edit(library: String, clip: String, edit: Value) -> Result<Value, String> {
     sidecar::call(
         "apply_transcript_edit",
@@ -245,7 +301,12 @@ pub fn run() {
             cancel_job,
             apply_transcript_edit,
             find_transcript_matches,
-            apply_library_replace
+            apply_library_replace,
+            roughcut_prerequisites,
+            list_briefs,
+            upsert_brief,
+            fork_brief,
+            start_roughcut
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

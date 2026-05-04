@@ -30,3 +30,28 @@ export type JobEvent =
 export async function listenJobEvents(jobId: string, handler: (event: JobEvent) => void): Promise<UnlistenFn> {
   return listen<JobEvent>(`sidecar-event:${jobId}`, (e) => handler(e.payload));
 }
+
+export type RoughcutJobEvent =
+  | { method: "roughcut_job_started"; params: { job_id: string; library: string; ts?: string } }
+  | { method: "roughcut_phase"; params: { job_id: string; phase: string; message?: string; ts?: string } }
+  | {
+      method: "roughcut_job_done";
+      params: {
+        job_id: string;
+        library: string;
+        yaml_path: string;
+        xml_path: string;
+        recipe_path: string;
+        apply_path: string;
+        clips: { source_file: string; in_point: string; out_point: string }[];
+        ts?: string;
+      };
+    }
+  | { method: "roughcut_job_failed"; params: { job_id: string; message: string; ts?: string } };
+
+export async function listenRoughcutJobEvents(
+  jobId: string,
+  handler: (event: RoughcutJobEvent) => void,
+): Promise<UnlistenFn> {
+  return listen<RoughcutJobEvent>(`sidecar-event:${jobId}`, (e) => handler(e.payload));
+}

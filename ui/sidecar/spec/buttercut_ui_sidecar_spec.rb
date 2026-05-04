@@ -102,6 +102,50 @@ RSpec.describe ButtercutUiSidecar do
     end
   end
 
+  describe "roughcut_prerequisites" do
+    it "returns ok false when a summary is missing" do
+      Dir.mktmpdir do |root|
+        LibraryFixture.build(root, name: "demo",
+          videos: [{ path: "/x/a.mp4", transcript: "a.json", visual_transcript: "visual_a.json", summary: "" }])
+        r = call(root, "roughcut_prerequisites", { library: "demo" })
+        expect(r["error"]).to be_nil
+        expect(r["result"]["ok"]).to be false
+        expect(r["result"]["missing"].first["video"]).to eq("a.mp4")
+      end
+    end
+
+    it "returns ok true when all three artifacts are listed per video" do
+      Dir.mktmpdir do |root|
+        LibraryFixture.build(root, name: "demo",
+          videos: [{ path: "/x/a.mp4", transcript: "a.json", visual_transcript: "visual_a.json", summary: "s.md" }])
+        r = call(root, "roughcut_prerequisites", { library: "demo" })
+        expect(r["result"]["ok"]).to be true
+        expect(r["result"]["missing"]).to eq([])
+      end
+    end
+  end
+
+  describe "list_briefs and upsert_brief" do
+    it "round-trips a brief in the library catalog" do
+      Dir.mktmpdir do |root|
+        FileUtils.mkdir_p(File.join(root, "demo"))
+        File.write(File.join(root, "demo", "library.yaml"), YAML.dump("library_name" => "demo"))
+
+        r1 = call(root, "upsert_brief", {
+          library: "demo",
+          prompt: "Open on action",
+          target_duration_seconds: 45
+        })
+        expect(r1["error"]).to be_nil
+        id = r1["result"]["id"]
+
+        r2 = call(root, "list_briefs", { library: "demo" })
+        expect(r2["result"]["briefs"].first["id"]).to eq(id)
+        expect(r2["result"]["briefs"].first["prompt"]).to eq("Open on action")
+      end
+    end
+  end
+
   describe "has_api_key" do
     it "returns false when no key is configured" do
       prev = ENV.delete("ANTHROPIC_API_KEY")
@@ -172,7 +216,7 @@ RSpec.describe ButtercutUiSidecar do
         File.write(cached, "fake-jpg-bytes")
 
         r = call(root, "get_or_generate_thumbnail", { library: "demo", video: "a.mp4" })["result"]
-        expect(r["path"]).to eq(cached)
+        expect(File.realpath(r["path"])).to eq(File.realpath(cached))
       end
     end
 

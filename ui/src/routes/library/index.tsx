@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { allowVideoPaths, getLibrary } from "../../ipc/sidecar";
 import type { LibraryDetail } from "./types";
+import BriefComposer from "./BriefComposer";
 import ClipGrid from "./ClipGrid";
 import StageZone from "./StageZone";
 import TranscriptZone from "./TranscriptZone";
@@ -11,8 +12,11 @@ type LoadState =
   | { kind: "ready"; library: LibraryDetail; selected: string }
   | { kind: "error"; message: string };
 
+type DetailTab = "footage" | "roughcut";
+
 export default function Library({ name }: { name: string }) {
   const [state, setState] = useState<LoadState>({ kind: "loading" });
+  const [detailTab, setDetailTab] = useState<DetailTab>("footage");
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
@@ -58,17 +62,39 @@ export default function Library({ name }: { name: string }) {
         selected={state.selected}
         onSelect={(filename) => setState({ kind: "ready", library: state.library, selected: filename })}
       />
-      <div className="library__detail">
-        <StageZone ref={videoRef} video={selectedVideo} footageSummary={state.library.footage_summary} />
-        <TranscriptZone
-          library={state.library.name}
-          video={state.selected || null}
-          onSeek={(seconds) => {
-            const v = videoRef.current;
-            if (v) v.currentTime = seconds;
-          }}
-          onClipChange={(filename) => setState({ kind: "ready", library: state.library, selected: filename })}
-        />
+      <div className="library__right">
+        <nav className="library__tabs" aria-label="Library views">
+          <button
+            type="button"
+            className={`library__tab${detailTab === "footage" ? " library__tab--active" : ""}`}
+            onClick={() => setDetailTab("footage")}
+          >
+            Footage
+          </button>
+          <button
+            type="button"
+            className={`library__tab${detailTab === "roughcut" ? " library__tab--active" : ""}`}
+            onClick={() => setDetailTab("roughcut")}
+          >
+            Rough cut
+          </button>
+        </nav>
+        {detailTab === "footage" ? (
+          <div className="library__detail">
+            <StageZone ref={videoRef} video={selectedVideo} footageSummary={state.library.footage_summary} />
+            <TranscriptZone
+              library={state.library.name}
+              video={state.selected || null}
+              onSeek={(seconds) => {
+                const v = videoRef.current;
+                if (v) v.currentTime = seconds;
+              }}
+              onClipChange={(filename) => setState({ kind: "ready", library: state.library, selected: filename })}
+            />
+          </div>
+        ) : (
+          <BriefComposer library={state.library.name} />
+        )}
       </div>
     </main>
   );
