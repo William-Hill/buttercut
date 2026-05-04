@@ -37,8 +37,9 @@ export default function RoughcutTimeline({
     [onPlayheadSecChange, total],
   );
 
-  const onPointerDown = (e: React.PointerEvent) => {
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
+    e.currentTarget.focus();
     onScrubStart?.();
     scrubbingRef.current = true;
     setShowScrubHint(true);
