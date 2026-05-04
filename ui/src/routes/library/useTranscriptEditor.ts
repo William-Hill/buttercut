@@ -24,7 +24,7 @@ interface ScrollAnchor {
 export interface UseTranscriptEditorArgs {
   library: string;
   clip: string | null;
-  scrollContainerRef: React.RefObject<HTMLElement>;
+  scrollContainerRef: React.RefObject<HTMLElement | null>;
   onTranscriptEdited: () => void; // caller refetches; hook restores anchor afterwards
 }
 
