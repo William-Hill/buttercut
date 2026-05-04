@@ -9,6 +9,7 @@ require "securerandom"
 require "yaml"
 require_relative "limits"
 require_relative "analysis_job"
+require_relative "presence"
 
 module ButtercutUiSidecar
   class AnalysisController
@@ -35,7 +36,7 @@ module ButtercutUiSidecar
       lib_dir = @libraries_root.join(library)
       data = read_yaml(lib_dir)
       videos = (data["videos"] || []).reject do |v|
-        present?(v["transcript"]) && present?(v["visual_transcript"]) && present?(v["summary"])
+        Presence.present?(v["transcript"]) && Presence.present?(v["visual_transcript"]) && Presence.present?(v["summary"])
       end
 
       @completion_latch = Concurrent::CountDownLatch.new(1)
@@ -80,15 +81,11 @@ module ButtercutUiSidecar
 
     private
 
-    def present?(value)
-      !value.nil? && !value.to_s.empty?
-    end
-
     def pending_stage_count(video)
       n = 0
-      n += 1 unless present?(video["transcript"])
-      n += 1 unless present?(video["visual_transcript"])
-      n += 1 unless present?(video["summary"])
+      n += 1 unless Presence.present?(video["transcript"])
+      n += 1 unless Presence.present?(video["visual_transcript"])
+      n += 1 unless Presence.present?(video["summary"])
       n
     end
 
@@ -113,9 +110,9 @@ module ButtercutUiSidecar
       visual_path  = File.join(transcripts_dir, "visual_#{stem}.json")
       summary_path = File.join(summaries_dir,   "summary_#{stem}.md")
 
-      need_t = !present?(video["transcript"])
-      need_a = !present?(video["visual_transcript"])
-      need_s = !present?(video["summary"])
+      need_t = !Presence.present?(video["transcript"])
+      need_a = !Presence.present?(video["visual_transcript"])
+      need_s = !Presence.present?(video["summary"])
 
       transcribe_body = lambda do
         res = @stages[:transcribe].run(

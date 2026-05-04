@@ -23,17 +23,23 @@ require_relative "lib/buttercut_ui_sidecar/library_replacer"
 require_relative "lib/buttercut_ui_sidecar/stages/transcribe"
 require_relative "lib/buttercut_ui_sidecar/stages/analyze"
 require_relative "lib/buttercut_ui_sidecar/stages/summarize"
+require_relative "lib/buttercut_ui_sidecar/brief_store"
+require_relative "lib/buttercut_ui_sidecar/presence"
+require_relative "lib/buttercut_ui_sidecar/roughcut_controller"
 
 module ButtercutUiSidecar
   def self.run(libraries_root:, io_in: $stdin, io_out: $stdout)
-    Dispatcher.new(libraries_root: libraries_root, io_in: io_in, io_out: io_out).run
+    repo_root = Pathname.new(__dir__).parent.parent
+    Dispatcher.new(libraries_root: libraries_root, io_in: io_in, io_out: io_out, repo_root: repo_root).run
   end
 
   class Dispatcher
-    def initialize(libraries_root:, io_in:, io_out:)
+    def initialize(libraries_root:, io_in:, io_out:, repo_root:)
       raise ArgumentError, "libraries_root required" if libraries_root.nil? || libraries_root.to_s.empty?
+      raise ArgumentError, "repo_root required" if repo_root.nil? || repo_root.to_s.empty?
 
       @libraries_root = Pathname.new(libraries_root)
+      @repo_root = Pathname.new(repo_root)
       @io_in = io_in
       @io_out = io_out
       @io_out.sync = true
@@ -152,8 +158,65 @@ module ButtercutUiSidecar
           notifier: @notifier,
           mutex: @transcript_mutex
         )
+      when "roughcut_prerequisites"
+        roughcut_prerequisites(params.fetch("library"))
+      when "list_briefs"
+        brief_catalog_list(params.fetch("library"))
+      when "upsert_brief"
+        brief_catalog_upsert(params)
+      when "fork_brief"
+        brief_catalog_fork(params)
+      when "start_roughcut"
+        roughcut_start(params)
       else raise UnknownMethod, "unknown method: #{method}"
       end
+    end
+
+    def roughcut_prerequisites(name)
+      data = load_library_yaml(name)
+      pre = ButtercutUiSidecar::RoughcutController.prerequisites_report(data)
+      { ok: pre[:ok], missing: pre[:missing] }
+    end
+
+    def brief_catalog_list(name)
+      library_dir(name)
+      { briefs: brief_store_for(name).list }
+    end
+
+    def brief_catalog_upsert(params)
+      lib = params.fetch("library")
+      library_dir(lib)
+      store = brief_store_for(lib)
+      id = store.upsert(
+        id: params["id"],
+        prompt: params.fetch("prompt"),
+        target_duration_seconds: params.fetch("target_duration_seconds"),
+        title: params["title"]
+      )
+      { id: id }
+    end
+
+    def brief_catalog_fork(params)
+      lib = params.fetch("library")
+      library_dir(lib)
+      { id: brief_store_for(lib).fork(parent_id: params.fetch("parent_id")) }
+    end
+
+    def roughcut_start(params)
+      lib = params.fetch("library")
+      library_dir(lib)
+      api_key = @settings.api_key
+      raise StandardError, "missing_api_key" if api_key.nil? || api_key.empty?
+
+      client = ButtercutUiSidecar::AnthropicClient.new(api_key: api_key)
+      rc = ButtercutUiSidecar::RoughcutController.new(
+        libraries_root: @libraries_root.to_s,
+        repo_root: @repo_root.to_s,
+        notifier: @notifier,
+        registry: @registry,
+        client: client
+      )
+      rc.validate_and_start!(library: lib, brief_id: params.fetch("brief_id"))
     end
 
     def list_libraries
@@ -207,6 +270,10 @@ module ButtercutUiSidecar
       YAML.safe_load(yaml_path.read, permitted_classes: [Date, Time], aliases: true) || {}
     end
 
+    def brief_store_for(library_name)
+      ButtercutUiSidecar::BriefStore.new(libraries_root: @libraries_root.to_s, library: library_name)
+    end
+
     def find_video_entry(library_data, library_name, video)
       videos = library_data["videos"] || []
       entry = videos.find { |v| v["path"].to_s == video }
@@ -221,14 +288,10 @@ module ButtercutUiSidecar
         filename: File.basename(path),
         path: path,
         duration_seconds: parse_duration(v["duration"]),
-        has_audio_transcript: present?(v["transcript"]),
-        has_visual_transcript: present?(v["visual_transcript"]),
-        has_summary: present?(v["summary"])
+        has_audio_transcript: Presence.present?(v["transcript"]),
+        has_visual_transcript: Presence.present?(v["visual_transcript"]),
+        has_summary: Presence.present?(v["summary"])
       }
-    end
-
-    def present?(value)
-      !value.nil? && !value.to_s.empty?
     end
 
     def parse_duration(value)
@@ -270,7 +333,7 @@ module ButtercutUiSidecar
     end
 
     def read_json_if_set(dir, name)
-      return nil unless present?(name)
+      return nil unless Presence.present?(name)
       path = dir.join(name)
       return nil unless path.file?
       JSON.parse(path.read)
@@ -279,7 +342,7 @@ module ButtercutUiSidecar
     end
 
     def read_text_if_set(dir, name)
-      return nil unless present?(name)
+      return nil unless Presence.present?(name)
       path = dir.join(name)
       path.file? ? path.read : nil
     end

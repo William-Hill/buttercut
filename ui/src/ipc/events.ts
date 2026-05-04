@@ -27,6 +27,48 @@ export type JobEvent =
       params: { job_id: string; succeeded_count: number; failed_count: number; ts: string };
     };
 
+async function listenSidecarJobChannel<T>(
+  jobId: string,
+  handler: (event: T) => void,
+): Promise<UnlistenFn> {
+  return listen<T>(`sidecar-event:${jobId}`, (e) => handler(e.payload));
+}
+
 export async function listenJobEvents(jobId: string, handler: (event: JobEvent) => void): Promise<UnlistenFn> {
-  return listen<JobEvent>(`sidecar-event:${jobId}`, (e) => handler(e.payload));
+  return listenSidecarJobChannel<JobEvent>(jobId, handler);
+}
+
+/** Paths returned with `roughcut_job_done` (all absolute). */
+export type RoughcutArtifactPaths = {
+  yaml_path: string;
+  xml_path: string;
+  recipe_path: string;
+  apply_path: string;
+};
+
+export type RoughcutClip = { source_file: string; in_point: string; out_point: string };
+
+export type RoughcutJobEvent =
+  | { method: "roughcut_job_started"; params: { job_id: string; library: string; ts?: string } }
+  | { method: "roughcut_phase"; params: { job_id: string; phase: string; message?: string; ts?: string } }
+  | {
+      method: "roughcut_job_done";
+      params: {
+        job_id: string;
+        library: string;
+        yaml_path: string;
+        xml_path: string;
+        recipe_path: string;
+        apply_path: string;
+        clips: RoughcutClip[];
+        ts?: string;
+      };
+    }
+  | { method: "roughcut_job_failed"; params: { job_id: string; message: string; ts?: string } };
+
+export async function listenRoughcutJobEvents(
+  jobId: string,
+  handler: (event: RoughcutJobEvent) => void,
+): Promise<UnlistenFn> {
+  return listenSidecarJobChannel<RoughcutJobEvent>(jobId, handler);
 }

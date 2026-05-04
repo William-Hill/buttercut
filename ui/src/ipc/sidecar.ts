@@ -87,6 +87,38 @@ export async function cancelJob(jobId: string): Promise<void> {
   await invoke("cancel_job", { jobId });
 }
 
+export async function roughcutPrerequisites(library: string): Promise<{ ok: boolean; missing: { video: string; missing: string[] }[] }> {
+  return invoke("roughcut_prerequisites", { library });
+}
+
+export async function listBriefs(library: string): Promise<{ briefs: Record<string, unknown>[] }> {
+  return invoke("list_briefs", { library });
+}
+
+export async function upsertBrief(args: {
+  library: string;
+  prompt: string;
+  targetDurationSeconds: number;
+  id?: string;
+  title?: string;
+}): Promise<{ id: string }> {
+  return invoke("upsert_brief", {
+    library: args.library,
+    prompt: args.prompt,
+    targetDurationSeconds: args.targetDurationSeconds,
+    id: args.id ?? null,
+    title: args.title ?? null,
+  });
+}
+
+export async function forkBrief(library: string, parentId: string): Promise<{ id: string }> {
+  return invoke("fork_brief", { library, parentId });
+}
+
+export async function startRoughcut(library: string, briefId: string): Promise<{ job_id: string }> {
+  return invoke("start_roughcut", { library, briefId });
+}
+
 export async function openNewProjectWindow(): Promise<void> {
   await invoke("open_new_project_window");
 }
