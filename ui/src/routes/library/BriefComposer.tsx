@@ -50,8 +50,7 @@ const ARTIFACT_PATH_KEYS: (keyof RoughcutArtifactPaths)[] = [
   "recipe_path",
   "apply_path",
 ];
-const EXPORT_FORMATS = ["resolve", "premiere", "fcpx"] as const;
-type ExportFormat = (typeof EXPORT_FORMATS)[number];
+type ExportFormat = "resolve" | "premiere" | "fcpx";
 
 function dirname(path: string): string {
   const i = path.lastIndexOf("/");

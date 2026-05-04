@@ -9,10 +9,8 @@ module ButtercutUiSidecar
     PRECHECK = <<~PY.freeze
       import json
       import sys
-      import traceback
 
       expected_timeline = sys.argv[1] if len(sys.argv) > 1 else ""
-      result = {"ok": False, "error": "unknown"}
       try:
           import DaVinciResolveScript as dvr_script  # type: ignore
       except Exception:

@@ -58,10 +58,8 @@ module ButtercutUiSidecar
 
       gemfile = @repo_root.join("Gemfile").to_s
       cmd = ["bundle", "exec", "ruby", script.to_s, yaml_path.to_s, xml_path.to_s, editor]
-      out = nil
-      status = nil
-      Dir.chdir(@repo_root.to_s) do
-        out, status = Open3.capture2e({ "BUNDLE_GEMFILE" => gemfile }, *cmd)
+      out, status = Dir.chdir(@repo_root.to_s) do
+        Open3.capture2e({ "BUNDLE_GEMFILE" => gemfile }, *cmd)
       end
       raise "export_failed: #{out.to_s.strip}" unless status.success?
     end
