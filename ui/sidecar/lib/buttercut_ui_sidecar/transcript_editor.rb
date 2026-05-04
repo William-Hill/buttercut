@@ -26,8 +26,8 @@ module ButtercutUiSidecar
       raise ArgumentError, "new_tokens required" if edit[:new_tokens].nil? || edit[:new_tokens].empty?
 
       @path = resolve_transcript_path(libraries_root, library, clip)
-      @segment_index = edit[:segment_index]
-      @word_index = edit[:word_index]
+      @segment_index = require_non_negative_integer(edit[:segment_index], "segment_index")
+      @word_index = require_non_negative_integer(edit[:word_index], "word_index")
       @old_tokens = edit[:old_tokens]
       @new_tokens = edit[:new_tokens]
     end
@@ -60,6 +60,19 @@ module ButtercutUiSidecar
     end
 
     private
+
+    def require_non_negative_integer(value, name)
+      i = Integer(value)
+      raise ArgumentError, "#{name} must be non-negative" if i.negative?
+
+      i
+    rescue ArgumentError => e
+      raise e if e.message == "#{name} must be non-negative"
+
+      raise ArgumentError, "#{name} must be a non-negative integer"
+    rescue TypeError
+      raise ArgumentError, "#{name} must be a non-negative integer"
+    end
 
     # Mirrors buttercut_ui_sidecar.rb #library_dir — rejects path traversal in
     # library / clip so RPC cannot read/write outside <root>/<library>/transcripts/.

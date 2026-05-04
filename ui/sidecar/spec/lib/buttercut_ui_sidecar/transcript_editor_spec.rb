@@ -167,6 +167,18 @@ RSpec.describe ButtercutUiSidecar::TranscriptEditor do
       end
     end
 
+    it "rejects negative segment_index" do
+      with_lib do |root, lib_dir|
+        write_transcript(lib_dir)
+        expect {
+          described_class.apply(
+            libraries_root: root, library: "demo", clip: "a.json",
+            edit: { segment_index: -1, word_index: 0, old_tokens: ["ride"], new_tokens: ["walk"] }
+          )
+        }.to raise_error(ArgumentError, /segment_index must be non-negative/)
+      end
+    end
+
     it "rejects clip transcript names that escape the transcripts directory" do
       with_lib do |root, lib_dir|
         write_transcript(lib_dir)
