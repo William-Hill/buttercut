@@ -119,6 +119,10 @@ export async function startRoughcut(library: string, briefId: string): Promise<{
   return invoke("start_roughcut", { library, briefId });
 }
 
+export async function readLibraryTextFile(path: string): Promise<string> {
+  return invoke<string>("read_library_text_file", { path });
+}
+
 export async function openNewProjectWindow(): Promise<void> {
   await invoke("open_new_project_window");
 }
