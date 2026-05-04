@@ -22,7 +22,8 @@ module ButtercutUiSidecar
     def list
       data = read_catalog
       briefs = (data["briefs"] || []).map(&:dup)
-      briefs.sort_by { |b| Time.parse(b["updated_at"].to_s).to_i }.reverse
+      # Newest first by updated_at; on timestamp ties, later catalog rows win (stable fork-after-parent).
+      briefs.each_with_index.sort_by { |(b, i)| [brief_sort_epoch(b["updated_at"]), i] }.map(&:first).reverse
     end
 
     def upsert(id:, prompt:, target_duration_seconds:, title: nil)
@@ -87,6 +88,12 @@ module ButtercutUiSidecar
     end
 
     private
+
+    def brief_sort_epoch(value)
+      Time.parse(value.to_s).to_i
+    rescue ArgumentError, TypeError
+      0
+    end
 
     def read_catalog
       return { "briefs" => [] } unless @catalog_path.file?

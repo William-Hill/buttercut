@@ -31,4 +31,41 @@ RSpec.describe ButtercutUiSidecar::BriefStore do
       expect(parent["target_duration_seconds"]).to eq(90)
     end
   end
+
+  it "sorts rows with invalid updated_at last without raising" do
+    Dir.mktmpdir do |root|
+      FileUtils.mkdir_p(File.join(root, "demo", "briefs"))
+      catalog = File.join(root, "demo", "briefs", "catalog.yaml")
+      File.write(
+        catalog,
+        YAML.dump(
+          "briefs" => [
+            {
+              "id" => "b-bad",
+              "parent_id" => nil,
+              "prompt" => "old",
+              "target_duration_seconds" => 1,
+              "title" => "",
+              "created_at" => "2020-01-01T00:00:00.000Z",
+              "updated_at" => "not-a-valid-time"
+            },
+            {
+              "id" => "b-good",
+              "parent_id" => nil,
+              "prompt" => "new",
+              "target_duration_seconds" => 1,
+              "title" => "",
+              "created_at" => "2020-01-01T00:00:00.000Z",
+              "updated_at" => "2026-06-01T12:00:00.000Z"
+            }
+          ]
+        )
+      )
+
+      store = described_class.new(libraries_root: root, library: "demo")
+      rows = store.list
+      expect(rows.first["id"]).to eq("b-good")
+      expect(rows.last["id"]).to eq("b-bad")
+    end
+  end
 end

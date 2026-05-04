@@ -110,4 +110,51 @@ RSpec.describe ButtercutUiSidecar::RoughcutController do
       expect(Open3).to have_received(:capture2e)
     end
   end
+
+  describe "#extract_yaml_fence" do
+    let(:controller) { described_class.allocate }
+
+    it "extracts multiline ```yaml bodies" do
+      inner = <<~YAML.strip
+        clips:
+          - source_file: a.mp4
+            in_point: "00:00:00.00"
+            out_point: "00:00:01.00"
+            dialogue: ""
+            visual_description: "x"
+      YAML
+      text = "Intro\n```yaml\n#{inner}\n```\n"
+      expect(controller.send(:extract_yaml_fence, text)).to eq(inner)
+    end
+
+    it "prefers ```yaml over an earlier non-roughcut fence" do
+      yaml_inner = <<~YAML.strip
+        clips:
+          - source_file: a.mp4
+            in_point: "00:00:00.00"
+            out_point: "00:00:01.00"
+            dialogue: ""
+            visual_description: "x"
+      YAML
+      text = <<~MD
+        ```json
+        {"note": "not roughcut yaml"}
+        ```
+        ```yaml
+        #{yaml_inner}
+        ```
+      MD
+      expect(controller.send(:extract_yaml_fence, text)).to eq(yaml_inner)
+    end
+
+    it "accepts an untagged fence that parses as roughcut YAML" do
+      inner = fake_yaml.strip
+      text = "```\n#{inner}\n```"
+      expect(controller.send(:extract_yaml_fence, text)).to eq(inner)
+    end
+
+    it "returns stripped raw text when no fence matches" do
+      expect(controller.send(:extract_yaml_fence, "  clips: []\n")).to eq("clips: []")
+    end
+  end
 end

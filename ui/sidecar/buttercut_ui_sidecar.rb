@@ -24,6 +24,7 @@ require_relative "lib/buttercut_ui_sidecar/stages/transcribe"
 require_relative "lib/buttercut_ui_sidecar/stages/analyze"
 require_relative "lib/buttercut_ui_sidecar/stages/summarize"
 require_relative "lib/buttercut_ui_sidecar/brief_store"
+require_relative "lib/buttercut_ui_sidecar/presence"
 require_relative "lib/buttercut_ui_sidecar/roughcut_controller"
 
 module ButtercutUiSidecar
@@ -179,14 +180,13 @@ module ButtercutUiSidecar
 
     def brief_catalog_list(name)
       library_dir(name)
-      store = ButtercutUiSidecar::BriefStore.new(libraries_root: @libraries_root.to_s, library: name)
-      { briefs: store.list }
+      { briefs: brief_store_for(name).list }
     end
 
     def brief_catalog_upsert(params)
       lib = params.fetch("library")
       library_dir(lib)
-      store = ButtercutUiSidecar::BriefStore.new(libraries_root: @libraries_root.to_s, library: lib)
+      store = brief_store_for(lib)
       id = store.upsert(
         id: params["id"],
         prompt: params.fetch("prompt"),
@@ -199,8 +199,7 @@ module ButtercutUiSidecar
     def brief_catalog_fork(params)
       lib = params.fetch("library")
       library_dir(lib)
-      store = ButtercutUiSidecar::BriefStore.new(libraries_root: @libraries_root.to_s, library: lib)
-      { id: store.fork(parent_id: params.fetch("parent_id")) }
+      { id: brief_store_for(lib).fork(parent_id: params.fetch("parent_id")) }
     end
 
     def roughcut_start(params)
@@ -271,6 +270,10 @@ module ButtercutUiSidecar
       YAML.safe_load(yaml_path.read, permitted_classes: [Date, Time], aliases: true) || {}
     end
 
+    def brief_store_for(library_name)
+      ButtercutUiSidecar::BriefStore.new(libraries_root: @libraries_root.to_s, library: library_name)
+    end
+
     def find_video_entry(library_data, library_name, video)
       videos = library_data["videos"] || []
       entry = videos.find { |v| v["path"].to_s == video }
@@ -285,14 +288,10 @@ module ButtercutUiSidecar
         filename: File.basename(path),
         path: path,
         duration_seconds: parse_duration(v["duration"]),
-        has_audio_transcript: present?(v["transcript"]),
-        has_visual_transcript: present?(v["visual_transcript"]),
-        has_summary: present?(v["summary"])
+        has_audio_transcript: Presence.present?(v["transcript"]),
+        has_visual_transcript: Presence.present?(v["visual_transcript"]),
+        has_summary: Presence.present?(v["summary"])
       }
-    end
-
-    def present?(value)
-      !value.nil? && !value.to_s.empty?
     end
 
     def parse_duration(value)
@@ -334,7 +333,7 @@ module ButtercutUiSidecar
     end
 
     def read_json_if_set(dir, name)
-      return nil unless present?(name)
+      return nil unless Presence.present?(name)
       path = dir.join(name)
       return nil unless path.file?
       JSON.parse(path.read)
@@ -343,7 +342,7 @@ module ButtercutUiSidecar
     end
 
     def read_text_if_set(dir, name)
-      return nil unless present?(name)
+      return nil unless Presence.present?(name)
       path = dir.join(name)
       path.file? ? path.read : nil
     end

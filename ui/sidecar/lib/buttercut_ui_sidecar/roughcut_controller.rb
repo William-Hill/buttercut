@@ -10,6 +10,7 @@ require "yaml"
 require_relative "analysis_job"
 require_relative "anthropic_client"
 require_relative "brief_store"
+require_relative "presence"
 
 module ButtercutUiSidecar
   # UI-driven rough cut: combine visual transcripts → Sonnet YAML → existing export script.
@@ -22,7 +23,7 @@ module ButtercutUiSidecar
       missing = []
       (library_data["videos"] || []).each do |v|
         base = File.basename(v["path"].to_s)
-        absent = PREREQ_KEYS.reject { |k| RoughcutController.present?(v[k]) }
+        absent = PREREQ_KEYS.reject { |k| Presence.present?(v[k]) }
         missing << { "video" => base, "missing" => absent } unless absent.empty?
       end
       { ok: missing.empty?, missing: missing }
@@ -32,7 +33,7 @@ module ButtercutUiSidecar
       lines = []
       (library_data["videos"] || []).each do |v|
         fn = v["visual_transcript"]
-        next unless RoughcutController.present?(fn)
+        next unless Presence.present?(fn)
 
         path = lib_dir.join("transcripts", fn.to_s)
         next unless path.file?
@@ -42,10 +43,6 @@ module ButtercutUiSidecar
         lines << JSON.generate(obj)
       end
       lines.join("\n") + "\n"
-    end
-
-    def self.present?(value)
-      !value.nil? && !value.to_s.empty?
     end
 
     def self.timecode_to_seconds(tc)
@@ -255,13 +252,24 @@ module ButtercutUiSidecar
     end
 
     def extract_yaml_fence(text)
-      if text =~ /```yaml\s*\n(.*?)\n```/m
-        Regexp.last_match(1)
-      elsif text =~ /```\s*\n(.*?)\n```/m
-        Regexp.last_match(1)
-      else
-        text.strip
+      body = text.to_s
+      if (m = body.match(/```(?:yaml|yml)\s*\n([\s\S]*?)```/mi))
+        return m[1].strip
       end
+
+      body.scan(/```[^\n\r]*\r?\n([\s\S]*?)```/m).each do |(inner)|
+        begin
+          candidate = inner&.strip
+          next if candidate.nil? || candidate.empty?
+
+          parsed = YAML.safe_load(candidate, permitted_classes: [Date, Time, Symbol], aliases: true)
+          return candidate if parsed.is_a?(Hash) && parsed["clips"].is_a?(Array) && !parsed["clips"].empty?
+        rescue Psych::SyntaxError, ArgumentError
+          next
+        end
+      end
+
+      body.strip
     end
 
     def validate_roughcut_shape!(rough)
@@ -269,11 +277,11 @@ module ButtercutUiSidecar
       raise "roughcut_missing_clips" unless clips.is_a?(Array) && !clips.empty?
 
       clips.each_with_index do |c, i|
-        raise "clip #{i} missing source_file" unless self.class.present?(c["source_file"])
-        raise "clip #{i} missing in_point" unless self.class.present?(c["in_point"])
-        raise "clip #{i} missing out_point" unless self.class.present?(c["out_point"])
+        raise "clip #{i} missing source_file" unless Presence.present?(c["source_file"])
+        raise "clip #{i} missing in_point" unless Presence.present?(c["in_point"])
+        raise "clip #{i} missing out_point" unless Presence.present?(c["out_point"])
         raise "clip #{i} missing dialogue" unless c.key?("dialogue")
-        raise "clip #{i} missing visual_description" unless self.class.present?(c["visual_description"])
+        raise "clip #{i} missing visual_description" unless Presence.present?(c["visual_description"])
       end
     end
 

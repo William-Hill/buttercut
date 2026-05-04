@@ -27,8 +27,15 @@ export type JobEvent =
       params: { job_id: string; succeeded_count: number; failed_count: number; ts: string };
     };
 
+async function listenSidecarJobChannel<T>(
+  jobId: string,
+  handler: (event: T) => void,
+): Promise<UnlistenFn> {
+  return listen<T>(`sidecar-event:${jobId}`, (e) => handler(e.payload));
+}
+
 export async function listenJobEvents(jobId: string, handler: (event: JobEvent) => void): Promise<UnlistenFn> {
-  return listen<JobEvent>(`sidecar-event:${jobId}`, (e) => handler(e.payload));
+  return listenSidecarJobChannel<JobEvent>(jobId, handler);
 }
 
 /** Paths returned with `roughcut_job_done` (all absolute). */
@@ -63,5 +70,5 @@ export async function listenRoughcutJobEvents(
   jobId: string,
   handler: (event: RoughcutJobEvent) => void,
 ): Promise<UnlistenFn> {
-  return listen<RoughcutJobEvent>(`sidecar-event:${jobId}`, (e) => handler(e.payload));
+  return listenSidecarJobChannel<RoughcutJobEvent>(jobId, handler);
 }
