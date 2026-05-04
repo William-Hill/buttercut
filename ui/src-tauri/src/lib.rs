@@ -46,6 +46,77 @@ async fn allow_video_paths(app: tauri::AppHandle, root: String) -> Result<(), St
 }
 
 #[tauri::command]
+async fn inspect_video_paths(paths: Vec<String>) -> Result<Value, String> {
+    sidecar::call("inspect_video_paths", json!({ "paths": paths }))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn create_library(
+    name: String,
+    language: String,
+    language_code: String,
+    refinement: bool,
+    videos: Value,
+) -> Result<Value, String> {
+    sidecar::call(
+        "create_library",
+        json!({
+            "name": name,
+            "language": language,
+            "language_code": language_code,
+            "refinement": refinement,
+            "videos": videos
+        }),
+    )
+    .await
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn has_api_key() -> Result<Value, String> {
+    sidecar::call("has_api_key", json!({})).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn set_api_key(key: String) -> Result<Value, String> {
+    sidecar::call("set_api_key", json!({ "key": key }))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn start_analysis(library: String) -> Result<Value, String> {
+    sidecar::call("start_analysis", json!({ "library": library }))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn cancel_job(job_id: String) -> Result<Value, String> {
+    sidecar::call("cancel_job", json!({ "job_id": job_id }))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn open_new_project_window(app: tauri::AppHandle) -> Result<(), String> {
+    let label = "new-project";
+    if let Some(existing) = app.get_webview_window(label) {
+        existing.set_focus().map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+    WebviewWindowBuilder::new(&app, label, WebviewUrl::App("index.html#/new-project".into()))
+        .title("New Project")
+        .inner_size(880.0, 720.0)
+        .min_inner_size(640.0, 540.0)
+        .build()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
 async fn open_library_window(app: tauri::AppHandle, name: String) -> Result<(), String> {
     let label = library_window_label(&name);
 
@@ -83,6 +154,7 @@ fn sanitize_label(name: &str) -> String {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let (ruby_bin, sidecar_script, libraries_root) = resolve_sidecar_paths()?;
 
@@ -92,9 +164,15 @@ pub fn run() {
             app.asset_protocol_scope()
                 .allow_directory(&libraries_root, true)?;
 
+            let app_handle = app.handle().clone();
             // tokio::process::Command needs a running reactor; setup() runs before one exists.
             tauri::async_runtime::block_on(async move {
-                sidecar::init(ruby_bin, sidecar_script, libraries_root)
+                sidecar::init(
+                    app_handle,
+                    ruby_bin,
+                    sidecar_script,
+                    libraries_root,
+                )
             })?;
             Ok(())
         })
@@ -104,7 +182,14 @@ pub fn run() {
             get_clip_transcripts,
             get_or_generate_thumbnail,
             allow_video_paths,
-            open_library_window
+            open_library_window,
+            open_new_project_window,
+            inspect_video_paths,
+            create_library,
+            has_api_key,
+            set_api_key,
+            start_analysis,
+            cancel_job
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

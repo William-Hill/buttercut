@@ -36,37 +36,10 @@ ffmpeg -ss 00:00:02 -i video.mov -vframes 1 -vf "scale=1280:-1" tmp/frames/[vide
 
 ## 3. Add visual descriptions
 
-Read the visual transcript JSON you created in step 1.
+The output schema and description guidelines are defined in
+`ui/sidecar/prompts/analyze_video.md` — read it before continuing.
 
 **Read the JPG frames** from `tmp/frames/[video_name]/` using the Read tool, then **Edit** the file at `<visual_transcript_path>`. Do this incrementally — no script needed; just edit the JSON each time you read new frames.
-
-**Dialogue segments — add `visual` field:**
-```json
-{
-  "start": 2.917,
-  "end": 7.586,
-  "text": "Hey, good afternoon everybody.",
-  "visual": "Man in red shirt speaking to camera in medium shot. Home office with bookshelf. Natural lighting.",
-  "words": [...]
-}
-```
-
-**B-roll segments — insert new entries:**
-```json
-{
-  "start": 35.474,
-  "end": 56.162,
-  "text": "",
-  "visual": "Green bicycle parked in front of building. Urban street with trees.",
-  "b_roll": true,
-  "words": []
-}
-```
-
-**Guidelines:**
-- Descriptions: 3 sentences max
-- First segment: detailed (subject, setting, shot type, lighting, camera style)
-- Continuing shots: brief if similar; up to 3 sentences if drastically different
 
 ## 4. Cleanup & return
 

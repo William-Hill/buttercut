@@ -23,12 +23,15 @@ Read `<summary_output_path>`. The Edit tool requires this before editing.
 
 ## Action 3 — Edit each placeholder
 
-Use the **Edit** tool four times to replace each `<!-- FILL_X -->` marker with the corresponding content:
+The four sections (Overview, Key visuals, Dialogue, B-roll) are defined in
+`ui/sidecar/prompts/summarize_video.md` — read it for the exact content rules.
 
-- `<!-- FILL_OVERVIEW -->` → 2-3 sentences describing the narrative arc. Be specific; avoid vague endings like "the clip ends with..." or "discusses something."
-- `<!-- FILL_KEY_VISUALS -->` → 3-6 bullets covering locations, distinctive shots, visual changes.
-- `<!-- FILL_DIALOGUE -->` → 0–3 quotes formatted as `> [MM:SS] "Quote"`. For clips under 30 seconds, often 0 or 1 is enough — write `None` if nothing stands out. Skip filler ("um", "you know", "I have to be honest"). Use the `[MM:SS]` shown next to each line in the script.
-- `<!-- FILL_BROLL -->` → cutaway descriptions distinct from the main subject. For single-shot clips, write `None`. Do not speculate about how the footage could be used as b-roll elsewhere.
+Use the **Edit** tool four times to replace each `<!-- FILL_X -->` marker with the corresponding section's content:
+
+- `<!-- FILL_OVERVIEW -->` → the Overview section.
+- `<!-- FILL_KEY_VISUALS -->` → the Key visuals bullets.
+- `<!-- FILL_DIALOGUE -->` → the Dialogue quotes (or `None`).
+- `<!-- FILL_BROLL -->` → the B-roll list (or `None`).
 
 ## Action 4 — Reply with one line
 

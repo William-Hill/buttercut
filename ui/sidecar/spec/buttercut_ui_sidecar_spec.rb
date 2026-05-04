@@ -102,6 +102,64 @@ RSpec.describe ButtercutUiSidecar do
     end
   end
 
+  describe "has_api_key" do
+    it "returns false when no key is configured" do
+      prev = ENV.delete("ANTHROPIC_API_KEY")
+      begin
+        Dir.mktmpdir do |root|
+          result = call(root, "has_api_key")
+          expect(result["result"]).to eq({ "configured" => false })
+        end
+      ensure
+        ENV["ANTHROPIC_API_KEY"] = prev if prev
+      end
+    end
+  end
+
+  describe "start_analysis" do
+    it "returns missing_api_key when no Anthropic key is configured" do
+      prev = ENV.delete("ANTHROPIC_API_KEY")
+      begin
+        Dir.mktmpdir do |root|
+          result = call(root, "start_analysis", { library: "demo" })
+          expect(result["error"]["code"]).to eq(-32_010)
+          expect(result["error"]["message"]).to eq("missing_api_key")
+        end
+      ensure
+        ENV["ANTHROPIC_API_KEY"] = prev if prev
+      end
+    end
+  end
+
+  describe "create_library" do
+    it "creates a library and returns its slug" do
+      Dir.mktmpdir do |root|
+        Dir.mktmpdir do |footage|
+          v = File.join(footage, "a.mp4")
+          File.write(v, "x")
+          result = call(root, "create_library", {
+            name: "My Lib",
+            language: "English",
+            language_code: "en",
+            refinement: true,
+            videos: [{ path: v, duration_seconds: 5 }]
+          })
+          expect(result["result"]).to eq({ "name" => "my-lib" })
+          expect(File.file?(File.join(root, "my-lib", "library.yaml"))).to be true
+        end
+      end
+    end
+  end
+
+  describe "inspect_video_paths" do
+    it "rejects nonexistent paths" do
+      Dir.mktmpdir do |root|
+        result = call(root, "inspect_video_paths", { paths: ["/no/such/file.mov"] })
+        expect(result["result"]["rejected"].first["reason"]).to eq("not_found")
+      end
+    end
+  end
+
   describe "get_or_generate_thumbnail" do
     it "returns the cached path on second call without re-shelling out" do
       Dir.mktmpdir do |root|

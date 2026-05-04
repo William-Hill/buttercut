@@ -15,6 +15,20 @@
   gap: 24px;
 }
 
+.card--new {
+  border-style: dashed;
+  border-color: var(--np-amber, #e0a55a);
+  min-height: 140px;
+  justify-content: center;
+  align-items: center;
+}
+
+.card__plus {
+  font-size: 32px;
+  line-height: 1;
+  color: var(--np-amber, #e0a55a);
+}
+
 .projects__title {
   font-family: var(--display);
   font-style: italic;

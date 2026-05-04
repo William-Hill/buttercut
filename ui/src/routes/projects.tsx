@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { listLibraries, openLibraryWindow, LibrarySummary } from "../ipc/sidecar";
+import { listLibraries, openLibraryWindow, openNewProjectWindow, type LibrarySummary } from "../ipc/sidecar";
 import "./projects.css";
 
 type LoadState =
@@ -33,14 +33,27 @@ export default function Projects() {
       )}
 
       {state.kind === "ready" && state.libraries.length === 0 && (
-        <p className="projects__status">No libraries yet. Create one with the CLI for now.</p>
+        <p className="projects__status">No libraries yet. Click <strong>+ New Project</strong> to start, or use the CLI.</p>
       )}
 
-      {state.kind === "ready" && state.libraries.length > 0 && (
+      {state.kind === "ready" && (
         <ul className="projects__grid">
+          <li>
+            <button
+              type="button"
+              className="card card--new"
+              onClick={() => openNewProjectWindow().catch(console.error)}
+            >
+              <span className="card__plus" aria-hidden>
+                +
+              </span>
+              <span className="card__name">New Project</span>
+            </button>
+          </li>
           {state.libraries.map((lib) => (
             <li key={lib.name}>
               <button
+                type="button"
                 className="card"
                 onClick={() => openLibraryWindow(lib.name).catch(console.error)}
               >

@@ -9,6 +9,7 @@ use std::time::Duration;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use tauri::Emitter;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStdin, Command};
 use tokio::sync::{oneshot, Mutex};
@@ -81,7 +82,15 @@ struct RpcError {
     message: String,
 }
 
+#[derive(Deserialize)]
+struct Notification {
+    method: String,
+    #[serde(default)]
+    params: Value,
+}
+
 pub fn init(
+    app: tauri::AppHandle,
     ruby_bin: PathBuf,
     sidecar_script: PathBuf,
     libraries_root: PathBuf,
@@ -101,6 +110,7 @@ pub fn init(
     let pending: Arc<Mutex<HashMap<u64, oneshot::Sender<Result<Value, SidecarError>>>>> =
         Arc::new(Mutex::new(HashMap::new()));
     let pending_for_reader = pending.clone();
+    let app_for_reader = app.clone();
 
     tokio::spawn(async move {
         let mut reader = BufReader::new(stdout).lines();
@@ -111,8 +121,8 @@ pub fn init(
                         continue;
                     }
                     match serde_json::from_str::<Response>(&line) {
-                        Ok(resp) => {
-                            let Some(id) = resp.id else { continue };
+                        Ok(resp) if resp.id.is_some() => {
+                            let id = resp.id.unwrap();
                             let mut map = pending_for_reader.lock().await;
                             if let Some(tx) = map.remove(&id) {
                                 let payload = if let Some(err) = resp.error {
@@ -123,9 +133,23 @@ pub fn init(
                                 let _ = tx.send(payload);
                             }
                         }
-                        Err(e) => {
-                            eprintln!("[sidecar] parse error: {e}: {line}");
-                        }
+                        _ => match serde_json::from_str::<Notification>(&line) {
+                            Ok(n) => {
+                                let job_id = n.params.get("job_id").and_then(|v| v.as_str()).unwrap_or("");
+                                let event_name = if job_id.is_empty() {
+                                    "sidecar-event".to_string()
+                                } else {
+                                    format!("sidecar-event:{job_id}")
+                                };
+                                let payload = serde_json::json!({ "method": n.method, "params": n.params });
+                                if let Err(e) = app_for_reader.emit(&event_name, payload) {
+                                    eprintln!("[sidecar] emit error: {e}");
+                                }
+                            }
+                            Err(e) => {
+                                eprintln!("[sidecar] parse error: {e}: {line}");
+                            }
+                        },
                     }
                 }
                 Ok(None) => break,
