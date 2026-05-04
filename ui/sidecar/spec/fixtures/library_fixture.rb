@@ -45,4 +45,30 @@ module LibraryFixture
     File.write(path, body)
     path
   end
+
+  # Writes a transcript JSON with the full WhisperX shape: segments[].words[]
+  # and a top-level word_segments[]. Each segment is provided as
+  # { start:, end:, text:, words: [{word:, start:, end:}, ...] }.
+  # word_segments is auto-derived as the flat concatenation of all words[].
+  def self.write_whisperx_transcript(lib_dir, basename, segments:, language: "en")
+    path = File.join(lib_dir, "transcripts", basename)
+    word_segments = segments.flat_map { |s| s[:words] || [] }.map do |w|
+      { "word" => w[:word], "start" => w[:start], "end" => w[:end] }
+    end
+    payload = {
+      "language" => language,
+      "video_path" => "n/a",
+      "segments" => segments.map do |s|
+        {
+          "start" => s[:start],
+          "end" => s[:end],
+          "text" => s[:text],
+          "words" => (s[:words] || []).map { |w| { "word" => w[:word], "start" => w[:start], "end" => w[:end] } }
+        }
+      end,
+      "word_segments" => word_segments
+    }
+    File.write(path, JSON.pretty_generate(payload))
+    path
+  end
 end
