@@ -147,5 +147,17 @@ RSpec.describe ButtercutUiSidecar::LibraryReplacer do
         expect(result[:affected_clips]).to be_empty
       end
     end
+
+    it "rejects N-token trust mode at the API boundary" do
+      with_lib do |root, _lib_dir|
+        expect {
+          described_class.apply(
+            libraries_root: root, library: "demo",
+            old_tokens: ["over", "by"], new_tokens: ["near", "to"], trust: true,
+            notifier: notifier
+          )
+        }.to raise_error(ArgumentError, /trust mode requires a single-token/)
+      end
+    end
   end
 end

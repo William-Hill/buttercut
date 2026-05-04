@@ -4,6 +4,7 @@
 require "date"
 require "json"
 require "pathname"
+require "tempfile"
 require "yaml"
 
 require_relative "transcript_editor"
@@ -31,6 +32,9 @@ module ButtercutUiSidecar
       if old_tokens.length != new_tokens.length
         raise TranscriptEditor::TokenCountViolation,
               "new_tokens (#{new_tokens.length}) != old_tokens (#{old_tokens.length})"
+      end
+      if trust && new_tokens.length != 1
+        raise ArgumentError, "trust mode requires a single-token replacement (got #{new_tokens.length})"
       end
 
       @libraries_root = libraries_root
@@ -92,7 +96,9 @@ module ButtercutUiSidecar
       return if existing.downcase.split(/\W+/).include?(term.downcase)
 
       data["user_context"] = existing.empty? ? term : "#{existing}\n#{term}"
-      yaml_path.write(YAML.dump(data))
+      tmp_path = "#{yaml_path}.tmp"
+      File.write(tmp_path, YAML.dump(data))
+      File.rename(tmp_path, yaml_path.to_s)
     end
   end
 end
