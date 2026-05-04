@@ -6,6 +6,13 @@ require "yaml"
 require_relative "../../../lib/buttercut_ui_sidecar/brief_store"
 
 RSpec.describe ButtercutUiSidecar::BriefStore do
+  it "refuses upsert when the library directory does not exist" do
+    Dir.mktmpdir do |root|
+      store = described_class.new(libraries_root: root, library: "missing-lib")
+      expect { store.upsert(id: nil, prompt: "x", target_duration_seconds: 10) }.to raise_error(/library directory missing/)
+    end
+  end
+
   it "upserts, lists newest first, and forks" do
     Dir.mktmpdir do |root|
       FileUtils.mkdir_p(File.join(root, "demo"))

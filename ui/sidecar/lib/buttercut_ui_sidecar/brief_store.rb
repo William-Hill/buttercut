@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "fileutils"
+require "pathname"
 require "securerandom"
 require "time"
 require "yaml"
@@ -94,6 +95,8 @@ module ButtercutUiSidecar
     private
 
     def with_catalog_lock
+      raise "library directory missing: #{@lib_dir}" unless @lib_dir.directory?
+
       @briefs_dir.mkpath
       lock_path = @briefs_dir.join(".catalog.lock")
       File.open(lock_path, File::CREAT | File::RDWR) do |lock_io|
