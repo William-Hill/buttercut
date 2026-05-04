@@ -14,43 +14,40 @@ module ButtercutUiSidecar
       try:
           import DaVinciResolveScript as dvr_script  # type: ignore
       except Exception:
-          result["error"] = "resolve_scripting_disabled"
-          print(json.dumps(result))
+          print(json.dumps({"ok": False, "error": "resolve_scripting_disabled"}))
           sys.exit(0)
 
       resolve = dvr_script.scriptapp("Resolve")
       if not resolve:
-          result["error"] = "resolve_scripting_disabled"
-          print(json.dumps(result))
+          print(json.dumps({"ok": False, "error": "resolve_scripting_disabled"}))
           sys.exit(0)
 
       project_manager = resolve.GetProjectManager()
       project = project_manager.GetCurrentProject() if project_manager else None
       if not project:
-          result["error"] = "resolve_no_active_project"
-          print(json.dumps(result))
+          print(json.dumps({"ok": False, "error": "resolve_no_active_project"}))
           sys.exit(0)
 
       timeline = project.GetCurrentTimeline()
       if not timeline:
-          result["error"] = "resolve_no_active_timeline"
-          print(json.dumps(result))
+          print(json.dumps({"ok": False, "error": "resolve_no_active_timeline"}))
           sys.exit(0)
 
       active_timeline = timeline.GetName() or ""
       if expected_timeline and expected_timeline != active_timeline:
-          result["error"] = "resolve_timeline_target_mismatch"
-          result["expected_timeline"] = expected_timeline
-          result["active_timeline"] = active_timeline
-          print(json.dumps(result))
+          print(json.dumps({
+              "ok": False,
+              "error": "resolve_timeline_target_mismatch",
+              "expected_timeline": expected_timeline,
+              "active_timeline": active_timeline,
+          }))
           sys.exit(0)
 
-      result = {
+      print(json.dumps({
           "ok": True,
           "project_name": project.GetName() or "",
           "active_timeline": active_timeline,
-      }
-      print(json.dumps(result))
+      }))
     PY
 
     def run(apply_path:, recipe_path:)
@@ -88,7 +85,12 @@ module ButtercutUiSidecar
     end
 
     def activate_resolve!
-      Open3.capture2("open", "-a", "DaVinci Resolve")
+      out, status = Open3.capture2e("open", "-a", "DaVinci Resolve")
+      return if status.success?
+
+      detail = out.to_s.strip
+      suffix = detail.empty? ? "" : " (#{detail})"
+      raise "resolve_launch_failed: Could not open DaVinci Resolve from the desktop. Open Resolve manually, then try Send to Resolve again.#{suffix}"
     end
 
     def precheck_resolve(expected_timeline:)
@@ -119,10 +121,21 @@ module ButtercutUiSidecar
 
     def normalize_apply_failure(output)
       text = output.to_s
-      return "missing_artifacts: recipe or apply script missing for this export." if text.include?("recipe not found")
-      return "resolve_scripting_disabled: Resolve scripting bridge not available. Enable Local scripting and restart Resolve." if text.include?("could not connect to Resolve")
-      return "resolve_no_active_project: No project is open in Resolve." if text.include?("no project open")
-      return "resolve_no_active_timeline: No timeline is active in Resolve. Import/open the rough cut timeline first." if text.include?("no timeline open")
+      if text.include?("recipe not found")
+        return "missing_recipe: The apply script could not find the recipe JSON on disk. Re-export the rough cut in ButterCut so the .recipe.json next to your XML is regenerated, then import the XML in Resolve and try again."
+      end
+      if text.include?("recipe version") && text.include?("unsupported")
+        return "resolve_apply_failed: This recipe version is not supported by the apply script. Re-export the rough cut to regenerate the recipe and _apply.py."
+      end
+      if text.include?("could not connect to Resolve")
+        return "resolve_scripting_disabled: Resolve scripting bridge not available. Enable Local scripting and restart Resolve."
+      end
+      if text.include?("no project open")
+        return "resolve_no_active_project: No project is open in Resolve."
+      end
+      if text.include?("no timeline open")
+        return "resolve_no_active_timeline: No timeline is active in Resolve. Import/open the rough cut timeline first."
+      end
 
       "resolve_apply_failed: #{text.strip}"
     end
