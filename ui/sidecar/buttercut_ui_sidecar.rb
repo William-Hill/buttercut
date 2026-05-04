@@ -151,9 +151,10 @@ module ButtercutUiSidecar
     # and get_or_generate_thumbnail.
     def library_dir(name)
       root = @libraries_root.expand_path
-      root = File.realpath(root) if root.directory?
+      root = Pathname.new(File.realpath(root)) if root.directory?
       candidate = root.join(name)
       dir = candidate.exist? ? File.realpath(candidate) : candidate.expand_path
+      dir = Pathname.new(dir) if dir.is_a?(String)
       root_prefix = root.to_s + File::SEPARATOR
       raise ArgumentError, "invalid library name: #{name}" unless dir.to_s.start_with?(root_prefix)
       dir
