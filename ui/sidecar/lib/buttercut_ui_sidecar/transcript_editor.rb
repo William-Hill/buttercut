@@ -80,24 +80,12 @@ module ButtercutUiSidecar
     end
 
     # The flat top-level word_segments array mirrors segments[].words[] in
-    # document order. Find the matching window by token sequence + start time,
-    # then update.
+    # document order. Find the matching window by start time + the original
+    # token (apply_to_words has already mutated the per-segment words[] but
+    # word_segments is a separate array), then update.
     def apply_to_word_segments(data)
       target_start = data["segments"][@segment_index]["words"][@word_index]["start"]
       flat = data["word_segments"]
-      window = nil
-      flat.each_with_index do |entry, i|
-        next unless entry["start"] == target_start && entry["word"] == @new_tokens.first
-        # First word already updated in-place via apply_to_words... but
-        # word_segments is a separate array (entries are dup'd at write time).
-        # So we need to match by start AND old token. Re-check with the original.
-        window = i
-        break
-      end
-
-      # If we didn't catch it via new_tokens.first (which we can't, because
-      # apply_to_words mutated words[] not word_segments[]), fall back to
-      # matching by start + old token.
       window = nil
       flat.each_with_index do |entry, i|
         if entry["start"] == target_start && entry["word"] == @old_tokens.first
