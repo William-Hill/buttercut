@@ -62,6 +62,43 @@ export default function RoughcutTimeline({
     }
   };
 
+  const onKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (total <= 0) return;
+      const step = e.shiftKey ? 5 : 1;
+      const bigStep = 10;
+      let next = playheadSec;
+      switch (e.key) {
+        case "ArrowLeft":
+        case "ArrowDown":
+          next = playheadSec - step;
+          break;
+        case "ArrowRight":
+        case "ArrowUp":
+          next = playheadSec + step;
+          break;
+        case "PageDown":
+          next = playheadSec - bigStep;
+          break;
+        case "PageUp":
+          next = playheadSec + bigStep;
+          break;
+        case "Home":
+          next = 0;
+          break;
+        case "End":
+          next = total;
+          break;
+        default:
+          return;
+      }
+      e.preventDefault();
+      onScrubStart?.();
+      onPlayheadSecChange(Math.max(0, Math.min(total, next)));
+    },
+    [total, playheadSec, onPlayheadSecChange, onScrubStart],
+  );
+
   if (clips.length === 0) return null;
 
   return (
@@ -74,6 +111,7 @@ export default function RoughcutTimeline({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
+        onKeyDown={onKeyDown}
         role="slider"
         tabIndex={0}
         aria-valuemin={0}

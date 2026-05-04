@@ -14,6 +14,16 @@ function basename(p: string): string {
   return i >= 0 ? p.slice(i + 1) : p;
 }
 
+function clampToClipWindow(t: number, inSec: number, outSec: number): number {
+  const min = inSec + 0.02;
+  const max = outSec - 0.02;
+  if (!Number.isFinite(t)) return Math.max(0, inSec);
+  if (max <= min) {
+    return Math.max(0, Math.min(Math.max(t, inSec), outSec));
+  }
+  return Math.min(Math.max(t, min), max);
+}
+
 export type RoughcutStagePreviewProps = {
   clips: RoughcutClip[];
   videos: VideoEntry[];
@@ -33,12 +43,20 @@ export default function RoughcutStagePreview({
 }: RoughcutStagePreviewProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const segments = buildTimelineSegments(clips);
-  const pathByFile = new Map(videos.map((v) => [v.filename, v.path]));
+  const pathByAbsolute = new Map(videos.map((v) => [v.path, v.path]));
+  const pathsByFilename = new Map<string, string[]>();
+  for (const v of videos) {
+    const arr = pathsByFilename.get(v.filename) ?? [];
+    arr.push(v.path);
+    pathsByFilename.set(v.filename, arr);
+  }
 
   const i = segmentIndexForGlobalTime(segments, playheadSec);
   const clip = clips[i];
   const seg = segments[i];
-  const resolved = pathByFile.get(basename(clip.source_file)) ?? pathByFile.get(clip.source_file);
+  const direct = pathByAbsolute.get(clip.source_file);
+  const nameMatches = pathsByFilename.get(basename(clip.source_file)) ?? [];
+  const resolved = direct ?? (nameMatches.length === 1 ? nameMatches[0] : "");
   const src = resolved ? convertFileSrc(resolved) : "";
   const inSec = timecodeToSeconds(clip.in_point);
   const outSec = timecodeToSeconds(clip.out_point);
@@ -58,7 +76,7 @@ export default function RoughcutStagePreview({
     if (playing) return;
     const v = videoRef.current;
     if (!v || !src) return;
-    const clamped = Math.min(Math.max(localT, inSec + 0.02), outSec - 0.02);
+    const clamped = clampToClipWindow(localT, inSec, outSec);
     if (Number.isFinite(clamped) && Math.abs(v.currentTime - clamped) > 0.08) {
       v.currentTime = clamped;
     }
@@ -102,7 +120,7 @@ export default function RoughcutStagePreview({
           playsInline
           onLoadedMetadata={(e) => {
             const v = e.currentTarget;
-            const t = Math.min(Math.max(localT, inSec + 0.02), outSec - 0.02);
+            const t = clampToClipWindow(localT, inSec, outSec);
             v.currentTime = Number.isFinite(t) ? t : inSec;
           }}
           onTimeUpdate={(e) => {

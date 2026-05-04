@@ -168,7 +168,14 @@ async fn start_roughcut(library: String, brief_id: String) -> Result<Value, Stri
 #[tauri::command]
 fn read_library_text_file(path: String) -> Result<String, String> {
     let root = resolve_libraries_root().canonicalize().map_err(|e| e.to_string())?;
-    let candidate = PathBuf::from(&path);
+    let candidate = {
+        let p = PathBuf::from(&path);
+        if p.is_absolute() {
+            p
+        } else {
+            root.join(p)
+        }
+    };
     let abs = candidate.canonicalize().map_err(|e| e.to_string())?;
     if !abs.starts_with(&root) {
         return Err("path outside libraries root".into());

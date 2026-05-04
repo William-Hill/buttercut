@@ -74,6 +74,7 @@ export default function BriefComposer({ library, videos }: { library: string; vi
   const [playing, setPlaying] = useState(false);
   const activeJobIdRef = useRef<string | null>(null);
   const unlistenRef = useRef<(() => void) | null>(null);
+  const recipeReadTokenRef = useRef(0);
 
   const refreshBriefs = useCallback(async () => {
     const r = await listBriefs(library);
@@ -147,6 +148,8 @@ export default function BriefComposer({ library, videos }: { library: string; vi
     unlistenRef.current?.();
     unlistenRef.current = null;
 
+    const runToken = ++recipeReadTokenRef.current;
+
     try {
       const key = await hasApiKey();
       if (!key.configured) {
@@ -192,8 +195,14 @@ export default function BriefComposer({ library, videos }: { library: string; vi
             });
             setClips(ev.params.clips);
             void readLibraryTextFile(ev.params.recipe_path)
-              .then((raw) => setRecipe(parseRoughcutRecipeJson(raw)))
-              .catch(() => setRecipe(null));
+              .then((raw) => {
+                if (recipeReadTokenRef.current !== runToken) return;
+                setRecipe(parseRoughcutRecipeJson(raw));
+              })
+              .catch(() => {
+                if (recipeReadTokenRef.current !== runToken) return;
+                setRecipe(null);
+              });
             setJobRunning(false);
             setPhaseMessage(null);
             activeJobIdRef.current = null;
