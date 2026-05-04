@@ -17,6 +17,9 @@ require_relative "lib/buttercut_ui_sidecar/library_creator"
 require_relative "lib/buttercut_ui_sidecar/job_registry"
 require_relative "lib/buttercut_ui_sidecar/analysis_job"
 require_relative "lib/buttercut_ui_sidecar/analysis_controller"
+require_relative "lib/buttercut_ui_sidecar/transcript_editor"
+require_relative "lib/buttercut_ui_sidecar/transcript_finder"
+require_relative "lib/buttercut_ui_sidecar/library_replacer"
 require_relative "lib/buttercut_ui_sidecar/stages/transcribe"
 require_relative "lib/buttercut_ui_sidecar/stages/analyze"
 require_relative "lib/buttercut_ui_sidecar/stages/summarize"
@@ -40,6 +43,7 @@ module ButtercutUiSidecar
       @inspector = ButtercutUiSidecar::VideoInspector.new
       @creator = ButtercutUiSidecar::LibraryCreator.new(libraries_root: @libraries_root.to_s)
       @registry = ButtercutUiSidecar::JobRegistry.new
+      @transcript_mutex = Mutex.new
     end
 
     def run
@@ -67,6 +71,8 @@ module ButtercutUiSidecar
       respond_error(id: id, code: -32601, message: e.message)
     rescue ButtercutUiSidecar::LibraryCreator::LibraryExists => e
       respond_error(id: id, code: -32011, message: "library_exists: #{e.message}")
+    rescue ButtercutUiSidecar::TranscriptEditor::TokenCountViolation => e
+      respond_error(id: id, code: -32013, message: "token_count_violation: #{e.message}")
     rescue StandardError => e
       case e.message
       when /\Amissing_api_key(\z|:)/
@@ -111,6 +117,33 @@ module ButtercutUiSidecar
         {}
       when "retry_unit"
         raise StandardError, "retry_unit is not yet supported in M2 minimum scope; re-run start_analysis to resume."
+      when "apply_transcript_edit"
+        edit = symbolize_edit(params.fetch("edit"))
+        ButtercutUiSidecar::TranscriptEditor.apply(
+          libraries_root: @libraries_root.to_s,
+          library: params.fetch("library"),
+          clip: params.fetch("clip"),
+          edit: edit
+        )
+      when "find_transcript_matches"
+        matches = ButtercutUiSidecar::TranscriptFinder.find(
+          libraries_root: @libraries_root.to_s,
+          library: params.fetch("library"),
+          tokens: params.fetch("tokens"),
+          scope: params.fetch("scope").to_sym,
+          clip: params["clip"]
+        )
+        { matches: matches }
+      when "apply_library_replace"
+        ButtercutUiSidecar::LibraryReplacer.apply(
+          libraries_root: @libraries_root.to_s,
+          library: params.fetch("library"),
+          old_tokens: params.fetch("old_tokens"),
+          new_tokens: params.fetch("new_tokens"),
+          trust: params.fetch("trust"),
+          notifier: @notifier,
+          mutex: @transcript_mutex
+        )
       else raise UnknownMethod, "unknown method: #{method}"
       end
     end
@@ -341,6 +374,15 @@ module ButtercutUiSidecar
 
     def respond_error(id:, code:, message:)
       @io_out.puts JSON.generate(jsonrpc: "2.0", id: id, error: { code: code, message: message })
+    end
+
+    def symbolize_edit(edit)
+      {
+        segment_index: edit.fetch("segment_index"),
+        word_index: edit.fetch("word_index"),
+        old_tokens: edit.fetch("old_tokens"),
+        new_tokens: edit.fetch("new_tokens")
+      }
     end
 
   class UnknownMethod < StandardError; end

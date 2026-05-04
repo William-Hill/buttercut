@@ -201,4 +201,95 @@ RSpec.describe ButtercutUiSidecar do
       end
     end
   end
+
+  describe "apply_transcript_edit" do
+    it "applies a 1->1 edit and returns edit_count" do
+      Dir.mktmpdir do |root|
+        lib_dir = LibraryFixture.build(root, name: "demo",
+          videos: [{ path: "/x/a.mp4", transcript: "a.json" }])
+        LibraryFixture.write_whisperx_transcript(lib_dir, "a.json", segments: [
+          { start: 0.0, end: 0.5, text: " hi Tenderlohn",
+            words: [
+              { word: "hi", start: 0.0, end: 0.1 },
+              { word: "Tenderlohn", start: 0.11, end: 0.5 }
+            ] }
+        ])
+
+        result = call(root, "apply_transcript_edit", {
+          library: "demo", clip: "a.json",
+          edit: { segment_index: 0, word_index: 1, old_tokens: ["Tenderlohn"], new_tokens: ["Tenderloin"] }
+        })
+        expect(result["error"]).to be_nil
+        expect(result["result"]["edit_count"]).to eq(1)
+      end
+    end
+
+    it "returns RPC error code -32013 token_count_violation on bad edit" do
+      Dir.mktmpdir do |root|
+        lib_dir = LibraryFixture.build(root, name: "demo",
+          videos: [{ path: "/x/a.mp4", transcript: "a.json" }])
+        LibraryFixture.write_whisperx_transcript(lib_dir, "a.json", segments: [
+          { start: 0.0, end: 0.5, text: " hi there",
+            words: [
+              { word: "hi", start: 0.0, end: 0.1 },
+              { word: "there", start: 0.11, end: 0.5 }
+            ] }
+        ])
+
+        result = call(root, "apply_transcript_edit", {
+          library: "demo", clip: "a.json",
+          edit: { segment_index: 0, word_index: 0, old_tokens: ["hi"], new_tokens: ["hi", "there"] }
+        })
+        expect(result["error"]["code"]).to eq(-32013)
+        expect(result["error"]["message"]).to match(/token_count_violation/)
+      end
+    end
+  end
+
+  describe "find_transcript_matches" do
+    it "returns library-wide matches" do
+      Dir.mktmpdir do |root|
+        lib_dir = LibraryFixture.build(root, name: "demo",
+          videos: [{ path: "/x/a.mp4", transcript: "a.json" }])
+        LibraryFixture.write_whisperx_transcript(lib_dir, "a.json", segments: [
+          { start: 0.0, end: 0.3, text: " hi Tenderlohn",
+            words: [
+              { word: "hi", start: 0.0, end: 0.1 },
+              { word: "Tenderlohn", start: 0.11, end: 0.3 }
+            ] }
+        ])
+
+        result = call(root, "find_transcript_matches", {
+          library: "demo", tokens: ["Tenderlohn"], scope: "library"
+        })["result"]
+        expect(result["matches"].length).to eq(1)
+        expect(result["matches"].first["clip"]).to eq("a.json")
+      end
+    end
+  end
+
+  describe "apply_library_replace" do
+    it "replaces matches across the library and returns counts" do
+      Dir.mktmpdir do |root|
+        lib_dir = LibraryFixture.build(root, name: "demo",
+          videos: [{ path: "/x/a.mp4", transcript: "a.json" }])
+        LibraryFixture.write_whisperx_transcript(lib_dir, "a.json", segments: [
+          { start: 0.0, end: 0.3, text: " hi Tenderlohn",
+            words: [
+              { word: "hi", start: 0.0, end: 0.1 },
+              { word: "Tenderlohn", start: 0.11, end: 0.3 }
+            ] }
+        ])
+
+        result = call(root, "apply_library_replace", {
+          library: "demo", old_tokens: ["Tenderlohn"], new_tokens: ["Tenderloin"], trust: true
+        })["result"]
+        expect(result["edit_count"]).to eq(1)
+        expect(result["affected_clips"]).to eq(["a.json"])
+
+        yaml = YAML.safe_load(File.read(File.join(lib_dir, "library.yaml")))
+        expect(yaml["user_context"]).to include("Tenderloin")
+      end
+    end
+  end
 end
