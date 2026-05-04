@@ -119,12 +119,20 @@ module ButtercutUiSidecar
         raise StandardError, "retry_unit is not yet supported in M2 minimum scope; re-run start_analysis to resume."
       when "apply_transcript_edit"
         edit = symbolize_edit(params.fetch("edit"))
-        ButtercutUiSidecar::TranscriptEditor.apply(
-          libraries_root: @libraries_root.to_s,
-          library: params.fetch("library"),
-          clip: params.fetch("clip"),
-          edit: edit
-        )
+        result = @transcript_mutex.synchronize do
+          ButtercutUiSidecar::TranscriptEditor.apply(
+            libraries_root: @libraries_root.to_s,
+            library: params.fetch("library"),
+            clip: params.fetch("clip"),
+            edit: edit
+          )
+        end
+        # Emit a notification so the frontend's transcript_edited listener fires
+        # for clip-scope edits too (mirrors LibraryReplacer's per-clip notifications).
+        # Fixes review issue I3 — uniform event emission.
+        @notifier.notify("transcript_edited",
+          library: params.fetch("library"), clip: params.fetch("clip"), edit_count: result[:edit_count])
+        result
       when "find_transcript_matches"
         matches = ButtercutUiSidecar::TranscriptFinder.find(
           libraries_root: @libraries_root.to_s,

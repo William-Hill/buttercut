@@ -244,6 +244,38 @@ RSpec.describe ButtercutUiSidecar do
         expect(result["error"]["message"]).to match(/token_count_violation/)
       end
     end
+
+    it "emits a transcript_edited notification with edit_count" do
+      Dir.mktmpdir do |root|
+        lib_dir = LibraryFixture.build(root, name: "demo",
+          videos: [{ path: "/x/a.mp4", transcript: "a.json" }])
+        LibraryFixture.write_whisperx_transcript(lib_dir, "a.json", segments: [
+          { start: 0.0, end: 0.5, text: " hi Tenderlohn",
+            words: [
+              { word: "hi", start: 0.0, end: 0.1 },
+              { word: "Tenderlohn", start: 0.11, end: 0.5 }
+            ] }
+        ])
+
+        io_in = StringIO.new(JSON.generate(
+          jsonrpc: "2.0", id: 1, method: "apply_transcript_edit",
+          params: {
+            library: "demo", clip: "a.json",
+            edit: { segment_index: 0, word_index: 1, old_tokens: ["Tenderlohn"], new_tokens: ["Tenderloin"] }
+          }
+        ) + "\n")
+        io_out = StringIO.new
+        ButtercutUiSidecar.run(libraries_root: root, io_in: io_in, io_out: io_out)
+
+        lines = io_out.string.lines.map { |l| JSON.parse(l) }
+        notifications = lines.select { |l| l["method"] == "transcript_edited" }
+        expect(notifications.size).to eq(1)
+        n = notifications.first
+        expect(n.dig("params", "library")).to eq("demo")
+        expect(n.dig("params", "clip")).to eq("a.json")
+        expect(n.dig("params", "edit_count")).to eq(1)
+      end
+    end
   end
 
   describe "find_transcript_matches" do
