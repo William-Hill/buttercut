@@ -1,6 +1,11 @@
 import type { ReactNode } from "react";
-import type { RecipeClip, RecipeJson, RecipeTransition } from "../../lib/recipeTypes";
-import { powergradeTouchesClip, recipeClipForUiIndex } from "../../lib/recipeTypes";
+import {
+  powergradeTouchesClip,
+  recipeClipForUiIndex,
+  type RecipeClip,
+  type RecipeJson,
+  type RecipeTransition,
+} from "../../lib/recipeTypes";
 
 function IconWrap({ title, children }: { title: string; children: ReactNode }) {
   return (

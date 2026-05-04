@@ -1,16 +1,8 @@
 import { useCallback, useRef, useState } from "react";
 import type { RoughcutClip } from "../../ipc/events";
-import type { RecipeJson } from "../../lib/recipeTypes";
-import { transitionAfterUiIndex } from "../../lib/recipeTypes";
-import { buildTimelineSegments, type TimelineSegment } from "../../lib/roughcutTimeline";
+import { transitionAfterUiIndex, type RecipeJson } from "../../lib/recipeTypes";
+import { buildTimelineSegments, formatRoughcutClock, type TimelineSegment } from "../../lib/roughcutTimeline";
 import { ClipRecipeGlyphs, GapTransitionGlyph } from "./RecipeGlyphs";
-
-function formatClock(sec: number): string {
-  if (!Number.isFinite(sec) || sec < 0) return "0:00";
-  const m = Math.floor(sec / 60);
-  const s = Math.floor(sec % 60);
-  return `${m}:${s.toString().padStart(2, "0")}`;
-}
 
 export type RoughcutTimelineProps = {
   clips: RoughcutClip[];
@@ -29,7 +21,7 @@ export default function RoughcutTimeline({
 }: RoughcutTimelineProps) {
   const trackRef = useRef<HTMLDivElement | null>(null);
   const scrubbingRef = useRef(false);
-  const [scrubTick, setScrubTick] = useState(false);
+  const [showScrubHint, setShowScrubHint] = useState(false);
   const segments: TimelineSegment[] = buildTimelineSegments(clips);
   const total = segments.length ? segments[segments.length - 1].endGlobal : 0;
   const playPct = total > 0 ? (playheadSec / total) * 100 : 0;
@@ -49,7 +41,7 @@ export default function RoughcutTimeline({
     e.preventDefault();
     onScrubStart?.();
     scrubbingRef.current = true;
-    setScrubTick(true);
+    setShowScrubHint(true);
     trackRef.current?.setPointerCapture(e.pointerId);
     scrubToClientX(e.clientX);
   };
@@ -62,7 +54,7 @@ export default function RoughcutTimeline({
   const onPointerUp = (e: React.PointerEvent) => {
     if (!scrubbingRef.current) return;
     scrubbingRef.current = false;
-    setScrubTick(false);
+    setShowScrubHint(false);
     try {
       trackRef.current?.releasePointerCapture(e.pointerId);
     } catch {
@@ -128,7 +120,9 @@ export default function RoughcutTimeline({
       </div>
 
       <p className="roughcut-timeline__hint">
-        {scrubTick ? "Scrubbing…" : `Drag the timeline to seek · ${formatClock(playheadSec)} / ${formatClock(total)}`}
+        {showScrubHint
+          ? "Scrubbing…"
+          : `Drag the timeline to seek · ${formatRoughcutClock(playheadSec)} / ${formatRoughcutClock(total)}`}
       </p>
     </div>
   );

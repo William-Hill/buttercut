@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react";
 import type { RoughcutClip } from "../../ipc/events";
 import {
   buildTimelineSegments,
+  formatRoughcutClock,
   segmentIndexForGlobalTime,
   timecodeToSeconds,
 } from "../../lib/roughcutTimeline";
@@ -11,13 +12,6 @@ import type { VideoEntry } from "./types";
 function basename(p: string): string {
   const i = Math.max(p.lastIndexOf("/"), p.lastIndexOf("\\"));
   return i >= 0 ? p.slice(i + 1) : p;
-}
-
-function formatClock(sec: number): string {
-  if (!Number.isFinite(sec) || sec < 0) return "0:00";
-  const m = Math.floor(sec / 60);
-  const s = Math.floor(sec % 60);
-  return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
 export type RoughcutStagePreviewProps = {
@@ -93,7 +87,7 @@ export default function RoughcutStagePreview({
           {playing ? "Pause" : "Play"}
         </button>
         <span className="roughcut-preview__time">
-          {formatClock(playheadSec)} / {formatClock(total)}
+          {formatRoughcutClock(playheadSec)} / {formatRoughcutClock(total)}
         </span>
         <span className="roughcut-preview__clip-label">
           {basename(clip.source_file)}

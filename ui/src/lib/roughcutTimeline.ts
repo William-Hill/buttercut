@@ -18,6 +18,14 @@ export function timecodeToSeconds(tc: string): number {
   return h * 3600 + m * 60 + s;
 }
 
+/** m:ss for timeline / preview chrome (sub-minute projects only need seconds). */
+export function formatRoughcutClock(sec: number): string {
+  if (!Number.isFinite(sec) || sec < 0) return "0:00";
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
 export function buildTimelineSegments(clips: RoughcutClip[]): TimelineSegment[] {
   let acc = 0;
   return clips.map((c, uiIndex) => {
@@ -42,10 +50,4 @@ export function segmentIndexForGlobalTime(segments: TimelineSegment[], t: number
     if (x < segments[i].endGlobal) return i;
   }
   return segments.length - 1;
-}
-
-export function localSourceSeconds(clips: RoughcutClip[], segments: TimelineSegment[], globalSec: number): number {
-  const i = segmentIndexForGlobalTime(segments, globalSec);
-  const inSec = timecodeToSeconds(clips[i].in_point);
-  return globalSec - segments[i].startGlobal + inSec;
 }
