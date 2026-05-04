@@ -42,7 +42,7 @@ New components:
 
 - **`WordToken.tsx`** — replaces the inline `<button class="row__word">` currently rendered in `TranscriptZone.tsx`. Single click still scrubs the player (preserving M1 behavior). On hover, a small pencil affordance appears; clicking it (or pressing `e` while focused) opens the edit popover anchored to the token.
 - **`EditPopover.tsx`** — anchored popover with: a single-line text input pre-filled with the current word; a scope picker radio (`This clip` / `This library` / `Trust globally`); a live match count for library scopes (`Found 7 matches across 4 clips`); a Replace button; Cancel. Esc / click-outside dismisses. Token-count validation runs on every keystroke.
-- **`FindReplacePanel.tsx`** — floating panel triggered by ⌘F. Search input + replacement input + scope picker (`This clip` / `Whole library`) + match list with click-to-scroll-into-view. Same token-count validation as the popover.
+- **`FindReplacePanel.tsx`** — floating panel triggered by ⌘F. Search input + replacement input + scope picker (`This clip` / `Whole library`) + match list with click-to-scroll-into-view. Token-count validation: the search and replacement strings must have the same token count (1↔1 or N↔N). The panel does NOT expose `Trust globally` — that lives only in the EditPopover, where the edit operates on a known proper-noun token.
 - **`useTranscriptEditor.ts`** — hook owning: edit state, undo stack (one level), scroll-anchor capture/restore, IPC dispatch wrappers.
 - **`editorTypes.ts`** — shared TypeScript types for edit operations and IPC payloads.
 
@@ -61,7 +61,7 @@ New classes (one class per file, single high-level entry point, per the project'
 
 New IPC commands (registered in `buttercut_ui_sidecar.rb` and proxied through `ui/src-tauri/src/lib.rs`):
 
-- `apply_transcript_edit(library, clip, edit)` — single-clip edit. `edit = { old_token, new_token, segment_index, word_index }`.
+- `apply_transcript_edit(library, clip, edit)` — single-clip edit. `edit = { old_tokens: [...], new_tokens: [...], segment_index, word_index }`. `word_index` is the start position of the phrase in `segments[segment_index].words[]`. For 1→1 fixes the arrays have length 1; for N→N find/replace they have matched length N.
 - `find_transcript_matches(library, token, scope)` — `scope = "clip" | "library"`. Used by the popover's live count and the find/replace panel's match list.
 - `apply_library_replace(library, old_token, new_token, trust)` — library-wide replacement. `trust: true` also touches `library.yaml`.
 
@@ -114,10 +114,17 @@ No new migration needed — libraries that lack `user_context` are already cover
 
 Both client- and server-side. Belt and suspenders because the rule is load-bearing for downstream timing.
 
-**Client (popover + find/replace input).**
+**Client — popover.**
 ```
 const tokens = value.trim().split(/\s+/);
 if (tokens.length !== 1) showError("Use a single token. To represent a multi-word term without splitting timing, squash it (e.g. SanJose).");
+```
+
+**Client — find/replace.**
+```
+const oldTokens = search.trim().split(/\s+/);
+const newTokens = replacement.trim().split(/\s+/);
+if (oldTokens.length !== newTokens.length) showError("Token count must match. Splitting or merging would corrupt timing — use a squashed form (e.g. SanJose) if needed.");
 ```
 
 **Server (`TranscriptEditor`).**
