@@ -16,16 +16,14 @@ module ButtercutUiSidecar
   class RoughcutController
     COMBINED_TRANSCRIPT_MAX_BYTES = 900_000
     MODEL = AnthropicClient::VISION_MODEL
+    PREREQ_KEYS = %w[transcript visual_transcript summary].freeze
 
     def self.prerequisites_report(library_data)
       missing = []
       (library_data["videos"] || []).each do |v|
         base = File.basename(v["path"].to_s)
-        m = []
-        m << "transcript" unless RoughcutController.present?(v["transcript"])
-        m << "visual_transcript" unless RoughcutController.present?(v["visual_transcript"])
-        m << "summary" unless RoughcutController.present?(v["summary"])
-        missing << { "video" => base, "missing" => m } unless m.empty?
+        absent = PREREQ_KEYS.reject { |k| RoughcutController.present?(v[k]) }
+        missing << { "video" => base, "missing" => absent } unless absent.empty?
       end
       { ok: missing.empty?, missing: missing }
     end
@@ -203,12 +201,12 @@ module ButtercutUiSidecar
 
       gemfile = @repo_root.join("Gemfile").to_s
       cmd = ["bundle", "exec", "ruby", script.to_s, yaml_path.expand_path.to_s, xml_path.expand_path.to_s, editor]
-      out = +""
+      out = nil
       status = nil
       Dir.chdir(@repo_root.to_s) do
         out, status = Open3.capture2e({ "BUNDLE_GEMFILE" => gemfile }, *cmd)
       end
-      raise "export_failed: #{out.strip}" unless status.success?
+      raise "export_failed: #{out.to_s.strip}" unless status.success?
     end
 
     def resolve_editor_flag(library_data)

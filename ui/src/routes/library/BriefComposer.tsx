@@ -1,3 +1,4 @@
+import type { MutableRefObject } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import {
@@ -9,7 +10,12 @@ import {
   startRoughcut,
   upsertBrief,
 } from "../../ipc/sidecar";
-import { listenRoughcutJobEvents, type RoughcutJobEvent } from "../../ipc/events";
+import {
+  listenRoughcutJobEvents,
+  type RoughcutArtifactPaths,
+  type RoughcutClip,
+  type RoughcutJobEvent,
+} from "../../ipc/events";
 
 export interface BriefRow {
   id: string;
@@ -23,6 +29,21 @@ export interface BriefRow {
 
 type PrereqRow = { video: string; missing: string[] };
 
+const ARTIFACT_PATH_KEYS: (keyof RoughcutArtifactPaths)[] = [
+  "xml_path",
+  "yaml_path",
+  "recipe_path",
+  "apply_path",
+];
+
+function disposeRoughcutListener(
+  unlisten: () => void,
+  ref: MutableRefObject<(() => void) | null>,
+): void {
+  unlisten();
+  if (ref.current === unlisten) ref.current = null;
+}
+
 export default function BriefComposer({ library }: { library: string }) {
   const [prereqOk, setPrereqOk] = useState<boolean | null>(null);
   const [prereqMissing, setPrereqMissing] = useState<PrereqRow[]>([]);
@@ -33,15 +54,10 @@ export default function BriefComposer({ library }: { library: string }) {
   const [phaseMessage, setPhaseMessage] = useState<string | null>(null);
   const [jobRunning, setJobRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [donePaths, setDonePaths] = useState<{
-    yaml_path: string;
-    xml_path: string;
-    recipe_path: string;
-    apply_path: string;
-  } | null>(null);
-  const [clips, setClips] = useState<{ source_file: string; in_point: string; out_point: string }[]>([]);
+  const [donePaths, setDonePaths] = useState<RoughcutArtifactPaths | null>(null);
+  const [clips, setClips] = useState<RoughcutClip[]>([]);
   const activeJobIdRef = useRef<string | null>(null);
-  const unlistenRef = useRef<null | (() => void)>(null);
+  const unlistenRef = useRef<(() => void) | null>(null);
 
   const refreshBriefs = useCallback(async () => {
     const r = await listBriefs(library);
@@ -133,30 +149,32 @@ export default function BriefComposer({ library }: { library: string }) {
     setJobRunning(true);
 
     const unlisten = await listenRoughcutJobEvents(jobId, (ev: RoughcutJobEvent) => {
-      if (ev.method === "roughcut_phase") {
-        setPhaseMessage(ev.params.message ?? ev.params.phase);
-      }
-      if (ev.method === "roughcut_job_done") {
-        setDonePaths({
-          yaml_path: ev.params.yaml_path,
-          xml_path: ev.params.xml_path,
-          recipe_path: ev.params.recipe_path,
-          apply_path: ev.params.apply_path,
-        });
-        setClips(ev.params.clips);
-        setJobRunning(false);
-        setPhaseMessage(null);
-        activeJobIdRef.current = null;
-        unlisten();
-        if (unlistenRef.current === unlisten) unlistenRef.current = null;
-      }
-      if (ev.method === "roughcut_job_failed") {
-        setError(ev.params.message);
-        setJobRunning(false);
-        setPhaseMessage(null);
-        activeJobIdRef.current = null;
-        unlisten();
-        if (unlistenRef.current === unlisten) unlistenRef.current = null;
+      switch (ev.method) {
+        case "roughcut_phase":
+          setPhaseMessage(ev.params.message ?? ev.params.phase);
+          break;
+        case "roughcut_job_done":
+          setDonePaths({
+            yaml_path: ev.params.yaml_path,
+            xml_path: ev.params.xml_path,
+            recipe_path: ev.params.recipe_path,
+            apply_path: ev.params.apply_path,
+          });
+          setClips(ev.params.clips);
+          setJobRunning(false);
+          setPhaseMessage(null);
+          activeJobIdRef.current = null;
+          disposeRoughcutListener(unlisten, unlistenRef);
+          break;
+        case "roughcut_job_failed":
+          setError(ev.params.message);
+          setJobRunning(false);
+          setPhaseMessage(null);
+          activeJobIdRef.current = null;
+          disposeRoughcutListener(unlisten, unlistenRef);
+          break;
+        default:
+          break;
       }
     });
     unlistenRef.current = unlisten;
@@ -299,42 +317,17 @@ export default function BriefComposer({ library }: { library: string }) {
             <div className="brief-composer__paths">
               <p className="brief-composer__paths-label">Artifacts (reveal in Finder)</p>
               <ul>
-                <li>
-                  <button
-                    type="button"
-                    className="brief-composer__linkish"
-                    onClick={() => void revealItemInDir(donePaths.xml_path)}
-                  >
-                    {donePaths.xml_path}
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    className="brief-composer__linkish"
-                    onClick={() => void revealItemInDir(donePaths.yaml_path)}
-                  >
-                    {donePaths.yaml_path}
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    className="brief-composer__linkish"
-                    onClick={() => void revealItemInDir(donePaths.recipe_path)}
-                  >
-                    {donePaths.recipe_path}
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    className="brief-composer__linkish"
-                    onClick={() => void revealItemInDir(donePaths.apply_path)}
-                  >
-                    {donePaths.apply_path}
-                  </button>
-                </li>
+                {ARTIFACT_PATH_KEYS.map((key) => (
+                  <li key={key}>
+                    <button
+                      type="button"
+                      className="brief-composer__linkish"
+                      onClick={() => void revealItemInDir(donePaths[key])}
+                    >
+                      {donePaths[key]}
+                    </button>
+                  </li>
+                ))}
               </ul>
             </div>
           )}
