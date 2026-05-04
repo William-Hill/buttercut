@@ -146,8 +146,20 @@ module ButtercutUiSidecar
               "word_segments realignment failed at segment #{@segment_index}, word #{@word_index}"
       end
 
+      window_slice = flat[window, @old_tokens.length]
+      unless window_slice&.length == @old_tokens.length
+        raise ArgumentError,
+              "word_segments window mismatch at segment #{@segment_index}, word #{@word_index}"
+      end
+
+      actual = window_slice.map { |w| w["word"] }
+      unless actual == @old_tokens
+        raise ArgumentError,
+              "word_segments window mismatch at segment #{@segment_index}, word #{@word_index}"
+      end
+
       @new_tokens.each_with_index do |new_word, i|
-        flat[window + i]["word"] = new_word if flat[window + i]
+        flat[window + i]["word"] = new_word
       end
     end
 

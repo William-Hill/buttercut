@@ -191,6 +191,32 @@ RSpec.describe ButtercutUiSidecar::TranscriptEditor do
       end
     end
 
+    it "raises when word_segments cannot supply a full window matching old_tokens" do
+      with_lib do |root, lib_dir|
+        LibraryFixture.write_whisperx_transcript(lib_dir, "a.json", segments: [
+          {
+            start: 0.0, end: 1.0, text: " hello dear world",
+            words: [
+              { word: "hello", start: 0.0, end: 0.3 },
+              { word: "dear", start: 0.31, end: 0.6 },
+              { word: "world", start: 0.61, end: 1.0 }
+            ]
+          }
+        ])
+        path = File.join(lib_dir, "transcripts", "a.json")
+        data = JSON.parse(File.read(path))
+        data["word_segments"] = [data["word_segments"].first]
+        File.write(path, JSON.pretty_generate(data))
+
+        expect {
+          described_class.apply(
+            libraries_root: root, library: "demo", clip: "a.json",
+            edit: { segment_index: 0, word_index: 0, old_tokens: ["hello", "dear"], new_tokens: ["howdy", "friend"] }
+          )
+        }.to raise_error(ArgumentError, /word_segments window mismatch/)
+      end
+    end
+
     it "tolerates transcripts without a top-level word_segments array" do
       with_lib do |root, lib_dir|
         # write a payload without word_segments
