@@ -41,7 +41,7 @@ module ButtercutUiSidecar
       @completion_latch = Concurrent::CountDownLatch.new(1)
 
       units_total = videos.sum { |v| pending_stage_count(v) }
-      @notifier.notify("job_started", job_id: job_id, library: library, video_count: videos.length)
+      @notifier.notify("job_started", job_id: job_id, library: library, video_count: units_total)
 
       if units_total.zero?
         @notifier.notify("job_done", job_id: job_id, succeeded_count: 0, failed_count: 0)
@@ -150,7 +150,8 @@ module ButtercutUiSidecar
         if need_s
           pools[:summarize].post do
             run_step(job: job, stage: :summarize, video: basename,
-                     artifact_path: summary_path, on_complete: on_complete, on_success: -> {}) { summarize_body.call }
+                     artifact_path: summary_path, on_complete: on_complete, on_success: -> {},
+                     need_a: false, need_s: false) { summarize_body.call }
           end
         end
       end
@@ -159,7 +160,8 @@ module ButtercutUiSidecar
         if need_a
           pools[:analyze].post do
             run_step(job: job, stage: :analyze, video: basename,
-                     artifact_path: visual_path, on_complete: on_complete, on_success: after_analyze) { analyze_body.call }
+                     artifact_path: visual_path, on_complete: on_complete, on_success: after_analyze,
+                     need_a: need_a, need_s: need_s) { analyze_body.call }
           end
         else
           after_analyze.call
@@ -169,16 +171,18 @@ module ButtercutUiSidecar
       if need_t
         pools[:transcribe].post do
           run_step(job: job, stage: :transcribe, video: basename,
-                   artifact_path: audio_path, on_complete: on_complete, on_success: after_transcribe) { transcribe_body.call }
+                   artifact_path: audio_path, on_complete: on_complete, on_success: after_transcribe,
+                   need_a: need_a, need_s: need_s) { transcribe_body.call }
         end
       else
         after_transcribe.call
       end
     end
 
-    def run_step(job:, stage:, video:, artifact_path:, on_complete:, on_success:)
+    def run_step(job:, stage:, video:, artifact_path:, on_complete:, on_success:, need_a:, need_s:)
       if job.canceled?
         on_complete.call(false)
+        flush_skipped_after_abort(stage, need_a: need_a, need_s: need_s, on_complete: on_complete)
         return
       end
       @notifier.notify("file_started", job_id: job.id, video: video, stage: stage.to_s)
@@ -192,6 +196,20 @@ module ButtercutUiSidecar
         @notifier.notify("file_failed", job_id: job.id, video: video, stage: stage.to_s,
                                          error_kind: classify_error(e), message: e.message)
         on_complete.call(false)
+        flush_skipped_after_abort(stage, need_a: need_a, need_s: need_s, on_complete: on_complete)
+      end
+    end
+
+    # When a stage aborts, downstream stages counted in units_total may never run — complete those units.
+    def flush_skipped_after_abort(stage, need_a:, need_s:, on_complete:)
+      case stage
+      when :transcribe
+        on_complete.call(false) if need_a
+        on_complete.call(false) if need_s
+      when :analyze
+        on_complete.call(false) if need_s
+      when :summarize
+        # no downstream
       end
     end
 

@@ -13,8 +13,8 @@ RSpec.describe ButtercutUiSidecar::Stages::Transcribe do
       FileUtils.mkdir_p(transcript_dir)
       expected_output = File.join(transcript_dir, "tiny.json")
 
-      shell = lambda do |argv, on_pid:|
-        on_pid.call(12345)
+      shell = lambda do |_argv, job:|
+        job.register_pid(12_345)
         # simulate whisperx writing the file
         File.write(expected_output, JSON.generate({ language: "en", segments: [] }))
         [true, ""]
@@ -41,7 +41,7 @@ RSpec.describe ButtercutUiSidecar::Stages::Transcribe do
     Dir.mktmpdir do |dir|
       video = File.join(dir, "v.mp4"); File.write(video, "x")
       transcript_dir = File.join(dir, "transcripts"); FileUtils.mkdir_p(transcript_dir)
-      shell = ->(_argv, on_pid:) { on_pid.call(1); [false, "boom"] }
+      shell = ->(_argv, job:) { job.register_pid(1); [false, "boom"] }
       stage = described_class.new(shell: shell, prepare: ->(*) {})
       job = ButtercutUiSidecar::AnalysisJob.new(id: "j1", library: "demo")
       expect {

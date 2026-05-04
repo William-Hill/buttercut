@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { SetupState } from "../state";
 import { slugify } from "../state";
 
@@ -11,9 +12,20 @@ export function Confirm({
   state: SetupState;
   apiKeyConfigured: boolean;
   onBack: () => void;
-  onStart: () => void;
+  onStart: () => void | Promise<void>;
   onSetupKey: () => void;
 }) {
+  const [starting, setStarting] = useState(false);
+
+  async function handleStart() {
+    if (starting) return;
+    setStarting(true);
+    try {
+      await onStart();
+    } finally {
+      setStarting(false);
+    }
+  }
   const totalDuration = state.accepted.reduce((s, v) => s + v.duration_seconds, 0);
   const minutes = Math.round(totalDuration / 60);
 
@@ -48,8 +60,8 @@ export function Confirm({
         <button type="button" onClick={onBack}>
           Back
         </button>
-        <button type="button" onClick={onStart} disabled={!apiKeyConfigured}>
-          Start analysis
+        <button type="button" onClick={() => void handleStart()} disabled={!apiKeyConfigured || starting}>
+          {starting ? "Starting…" : "Start analysis"}
         </button>
       </footer>
     </section>

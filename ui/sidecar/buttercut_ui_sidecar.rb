@@ -151,7 +151,9 @@ module ButtercutUiSidecar
     # and get_or_generate_thumbnail.
     def library_dir(name)
       root = @libraries_root.expand_path
-      dir = root.join(name).expand_path
+      root = File.realpath(root) if root.directory?
+      candidate = root.join(name)
+      dir = candidate.exist? ? File.realpath(candidate) : candidate.expand_path
       root_prefix = root.to_s + File::SEPARATOR
       raise ArgumentError, "invalid library name: #{name}" unless dir.to_s.start_with?(root_prefix)
       dir
@@ -163,11 +165,10 @@ module ButtercutUiSidecar
       YAML.safe_load(yaml_path.read, permitted_classes: [Date, Time], aliases: true) || {}
     end
 
-    # Library entries are matched by basename. If two videos in different source
-    # folders share a filename, only the first is reachable — known limitation
-    # of the basename-as-id contract used throughout the sidecar.
     def find_video_entry(library_data, library_name, video)
-      entry = (library_data["videos"] || []).find { |v| File.basename(v["path"].to_s) == video }
+      videos = library_data["videos"] || []
+      entry = videos.find { |v| v["path"].to_s == video }
+      entry ||= videos.find { |v| File.basename(v["path"].to_s) == video }
       raise ArgumentError, "video not found in #{library_name}: #{video}" if entry.nil?
       entry
     end

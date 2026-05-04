@@ -19,7 +19,7 @@ RSpec.describe ButtercutUiSidecar::Stages::Analyze do
       audio = setup_audio(dir)
       visual = File.join(dir, "visual_a.json")
 
-      ffmpeg = ->(_video, _ts, out_path, on_pid:) { on_pid.call(rand(2**16)); File.write(out_path, "fakejpg"); true }
+      ffmpeg = ->(_video, _ts, out_path, job:) { job.register_pid(rand(2**16)); File.write(out_path, "fakejpg"); true }
       vision = ->(_frames, _prompt) { { "segments" => [{ "start" => 0.0, "end" => 5.0, "text" => "hello", "visual" => "scene" }] } }
 
       stage = described_class.new(ffmpeg: ffmpeg, vision: vision)
@@ -37,7 +37,7 @@ RSpec.describe ButtercutUiSidecar::Stages::Analyze do
       audio = setup_audio(dir)
       visual = File.join(dir, "visual_a.json")
 
-      ffmpeg = ->(_, _, out_path, on_pid:) { on_pid.call(1); File.write(out_path, "fakejpg"); true }
+      ffmpeg = ->(_, _, out_path, job:) { job.register_pid(1); File.write(out_path, "fakejpg"); true }
       vision = ->(_, _) { raise "should not call vision" }
 
       stage = described_class.new(ffmpeg: ffmpeg, vision: vision)

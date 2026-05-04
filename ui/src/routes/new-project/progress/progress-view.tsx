@@ -19,11 +19,17 @@ export function ProgressView({
   const [expanded, setExpanded] = useState<string | null>(null);
 
   useEffect(() => {
+    let disposed = false;
     let unlisten: (() => void) | null = null;
     void listenJobEvents(jobId, (evt: JobEvent) => dispatch(evt as JobReducerAction)).then((fn) => {
+      if (disposed) {
+        fn();
+        return;
+      }
       unlisten = fn;
     });
     return () => {
+      disposed = true;
       unlisten?.();
     };
   }, [jobId]);

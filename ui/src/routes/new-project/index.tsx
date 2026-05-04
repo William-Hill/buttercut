@@ -89,7 +89,7 @@ export default function NewProject() {
           state={state}
           apiKeyConfigured={keyConfigured}
           onBack={goBack}
-          onStart={() => void start()}
+          onStart={start}
           onSetupKey={() => setShowKeyModal(true)}
         />
       ) : null}

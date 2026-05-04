@@ -2,6 +2,7 @@
 
 require "open3"
 require "pathname"
+require "rbconfig"
 
 module ButtercutUiSidecar
   module Stages
@@ -27,7 +28,7 @@ module ButtercutUiSidecar
           "--output_dir", transcript_output_dir
         ]
 
-        ok, stderr = @shell.call(argv, on_pid: ->(pid) { job.register_pid(pid) })
+        ok, stderr = @shell.call(argv, job: job)
         raise "whisperx failed: #{stderr.strip}" unless ok
         return cancel_result if job.canceled?
 
@@ -45,16 +46,21 @@ module ButtercutUiSidecar
         { canceled: true }
       end
 
-      def default_shell(argv, on_pid:)
+      def default_shell(argv, job:)
         stdin, stdout_err, wait_thr = Open3.popen2e(*argv)
         stdin.close
-        on_pid.call(wait_thr.pid)
-        out = stdout_err.read
-        wait_thr.value.success? ? [true, out] : [false, out]
+        pid = wait_thr.pid
+        job.register_pid(pid)
+        begin
+          out = stdout_err.read
+          wait_thr.value.success? ? [true, out] : [false, out]
+        ensure
+          job.unregister_pid(pid)
+        end
       end
 
       def default_prepare(prepare_script, json_path, video_path)
-        ok, err = run_simple("ruby", prepare_script, json_path, video_path)
+        ok, err = run_simple(RbConfig.ruby, prepare_script, json_path, video_path)
         raise "prepare_audio_script failed: #{err.strip}" unless ok
       end
 

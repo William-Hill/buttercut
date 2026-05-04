@@ -37,7 +37,10 @@ export function Language({
         <button
           type="button"
           className={"np-card" + (!isPreset ? " np-card--active" : "")}
-          onClick={() => dispatch({ type: "set_language", name: "Other", code: other })}
+          onClick={() => {
+            if (isPreset) setOther("");
+            dispatch({ type: "set_language", name: "Other", code: isPreset ? "" : other });
+          }}
         >
           Other…
         </button>

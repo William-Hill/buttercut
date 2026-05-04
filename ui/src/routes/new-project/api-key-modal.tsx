@@ -33,7 +33,9 @@ export function ApiKeyModal({ onClose, onSaved }: { onClose: () => void; onSaved
             Get a key →
           </a>
         </p>
+        <label htmlFor="anthropic-api-key">API key</label>
         <input
+          id="anthropic-api-key"
           type="password"
           value={key}
           onChange={(e) => setKey(e.target.value)}

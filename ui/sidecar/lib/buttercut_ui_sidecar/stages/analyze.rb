@@ -20,20 +20,24 @@ module ButtercutUiSidecar
       def run(job:, video_path:, audio_transcript_path:, visual_transcript_path:)
         return cancel_result if job.canceled?
 
-        prepared = prepare_skeleton(audio_transcript_path)
-        timestamps = sample_timestamps(prepared)
-        frames = extract_frames(job, video_path, timestamps)
-        return cancel_result if job.canceled?
+        tmp_dir = nil
+        begin
+          prepared = prepare_skeleton(audio_transcript_path)
+          timestamps = sample_timestamps(prepared)
+          frames, tmp_dir = extract_frames(job, video_path, timestamps)
+          return cancel_result if job.canceled?
 
-        prompt = File.read(@prompt_path)
-        response = @vision.call(frames, prompt + "\n\nHere is the prepared transcript skeleton (JSON):\n" + JSON.pretty_generate(prepared))
-        return cancel_result if job.canceled?
+          prompt = File.read(@prompt_path)
+          response = @vision.call(frames, prompt + "\n\nHere is the prepared transcript skeleton (JSON):\n" + JSON.pretty_generate(prepared))
+          return cancel_result if job.canceled?
 
-        merged = merge_segments(prepared, response.fetch("segments"))
-        atomic_write_json(visual_transcript_path, merged)
+          merged = merge_segments(prepared, response.fetch("segments"))
+          atomic_write_json(visual_transcript_path, merged)
 
-        cleanup_frames(frames)
-        { visual_transcript_path: visual_transcript_path }
+          { visual_transcript_path: visual_transcript_path }
+        ensure
+          FileUtils.rm_rf(tmp_dir) if tmp_dir && File.directory?(tmp_dir)
+        end
       end
 
       def self.default_prompt_path
@@ -65,12 +69,12 @@ module ButtercutUiSidecar
         FileUtils.mkdir_p(tmp_dir)
         frames = []
         timestamps.each_with_index do |ts, i|
-          return frames if job.canceled?
+          return [frames, tmp_dir] if job.canceled?
           out = File.join(tmp_dir, "frame_#{i}.jpg")
-          ok = @ffmpeg.call(video_path, ts, out, on_pid: ->(pid) { job.register_pid(pid) })
+          ok = @ffmpeg.call(video_path, ts, out, job: job)
           frames << out if ok && File.file?(out)
         end
-        frames
+        [frames, tmp_dir]
       end
 
       def merge_segments(prepared, response_segments)
@@ -94,23 +98,23 @@ module ButtercutUiSidecar
         File.rename(tmp, path)
       end
 
-      def cleanup_frames(frames)
-        return if frames.empty?
-        FileUtils.rm_rf(File.dirname(frames.first))
-      end
-
       def cancel_result
         { canceled: true }
       end
 
-      def default_ffmpeg(video_path, timestamp, out_path, on_pid:)
+      def default_ffmpeg(video_path, timestamp, out_path, job:)
         cmd = ["ffmpeg", "-ss", format_ts(timestamp), "-i", video_path,
                "-vframes", "1", "-vf", "scale=1280:-1", "-y", out_path]
         stdin, stdout_err, wait_thr = Open3.popen2e(*cmd)
         stdin.close
-        on_pid.call(wait_thr.pid)
-        stdout_err.read
-        wait_thr.value.success?
+        pid = wait_thr.pid
+        job.register_pid(pid)
+        begin
+          stdout_err.read
+          wait_thr.value.success?
+        ensure
+          job.unregister_pid(pid)
+        end
       end
 
       def format_ts(seconds)

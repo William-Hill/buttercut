@@ -29,9 +29,10 @@ export function jobReducer(state: JobState, evt: JobReducerAction): JobState {
   switch (evt.method) {
     case "job_started":
       return {
-        ...state,
         job_id: evt.params.job_id,
-        totals: { ...state.totals, total: evt.params.video_count },
+        videos: {},
+        totals: { done: 0, failed: 0, total: evt.params.video_count },
+        status: "running",
       };
     case "file_started":
       return updateClip(state, evt.params.video, (c) => ({

@@ -11,8 +11,10 @@ export function ArtifactPreview({ clip, library }: { clip: ClipState; library: s
   });
 
   useEffect(() => {
+    let cancelled = false;
     getClipTranscripts(library, clip.video)
       .then((t: ClipTranscripts) => {
+        if (cancelled) return;
         setData({
           audio: previewAudio(t.audio),
           visual: previewVisual(t.visual),
@@ -20,6 +22,9 @@ export function ArtifactPreview({ clip, library }: { clip: ClipState; library: s
         });
       })
       .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, [clip.artifacts.transcribe, clip.artifacts.analyze, clip.artifacts.summarize, library, clip.video]);
 
   return (

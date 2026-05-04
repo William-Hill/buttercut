@@ -22,14 +22,27 @@ module ButtercutUiSidecar
     def cancel!
       return if @cancel_flag.true?
       @cancel_flag.make_true
-      @pids.dup.each { |pid| terminate_pid(pid) }
+      pids = @pids.dup
+      pids.each do |pid|
+        Process.kill("TERM", pid)
+      rescue Errno::ESRCH
+      end
+      sleep 2
+      pids.each do |pid|
+        Process.kill("KILL", pid)
+      rescue Errno::ESRCH, Errno::ECHILD
+      end
       @abortables.dup.each do |h|
         h.abort! if h.respond_to?(:abort!)
       end
     end
 
     def register_pid(pid)
-      @pids << pid
+      if @cancel_flag.true?
+        terminate_pid_immediate(pid)
+      else
+        @pids << pid
+      end
     end
 
     def unregister_pid(pid)
@@ -51,9 +64,9 @@ module ButtercutUiSidecar
 
     private
 
-    def terminate_pid(pid)
+    def terminate_pid_immediate(pid)
       Process.kill("TERM", pid)
-      sleep 2
+      sleep 0.1
       Process.kill("KILL", pid)
     rescue Errno::ESRCH, Errno::ECHILD
       # already gone
