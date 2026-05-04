@@ -34,10 +34,10 @@ export function useTranscriptEditor({ library, clip, scrollContainerRef, onTrans
   const undoRef = useRef<UndoEntry | null>(null);
   const anchorRef = useRef<ScrollAnchor | null>(null);
 
-  // Reset undo stack when the open clip changes.
+  // Reset undo stack when the open clip or library changes.
   useEffect(() => {
     undoRef.current = null;
-  }, [clip]);
+  }, [clip, library]);
 
   // Subscribe to transcript_edited; capture anchor + ask caller to refetch.
   useEffect(() => {
@@ -74,11 +74,7 @@ export function useTranscriptEditor({ library, clip, scrollContainerRef, onTrans
         scope: "clip",
         inverse_edit: { ...edit, old_tokens: edit.new_tokens, new_tokens: edit.old_tokens, clip: clipName },
       };
-      // The sidecar emits transcript_edited; the listener triggers refetch.
-      // For clip scope we still emit the event from sidecar via TranscriptEditor?
-      // No — TranscriptEditor doesn't notify; only LibraryReplacer does.
-      // Trigger refetch directly here.
-      onTranscriptEdited();
+      // Dispatcher emits transcript_edited; the listener handles the refetch.
       return r;
     } catch (e) {
       setError(String(e));
@@ -86,7 +82,7 @@ export function useTranscriptEditor({ library, clip, scrollContainerRef, onTrans
     } finally {
       setBusy(false);
     }
-  }, [library, scrollContainerRef, onTranscriptEdited]);
+  }, [library, scrollContainerRef]);
 
   const replaceLibrary = useCallback(async (oldTokens: string[], newTokens: string[], scope: ReplaceScope): Promise<ApplyLibraryReplaceResult | null> => {
     setBusy(true); setError(null);
