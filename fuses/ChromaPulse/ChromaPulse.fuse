@@ -1,0 +1,37 @@
+FuRegisterClass("ChromaPulse", CT_Tool, {
+  REGS_Name = "ChromaPulse",
+  REGS_Category = "ButterCut",
+  REGS_OpIconString = "CP",
+  REGS_OpDescription = "Chromatic aberration pulse",
+  REG_NoMotionBlurCtrls = true,
+  REG_NoBlendCtrls = false,
+  REG_OpNoMask = true,
+})
+
+ChromaPulse = Class("ChromaPulse", Operator)
+
+function ChromaPulse:Create()
+  InImage = self:AddInput("Input", "Input", { LINKID_DataType = "Image", LINK_Main = 1 })
+  InIntensity = self:AddInput("Intensity", "Intensity", {
+    LINKID_DataType = "Number", INPID_InputControl = "SliderControl",
+    INP_Default = 0.4, INP_MinScale = 0.0, INP_MaxScale = 1.0,
+  })
+  InSpeed = self:AddInput("Speed", "Speed", {
+    LINKID_DataType = "Number", INPID_InputControl = "SliderControl",
+    INP_Default = 1.0, INP_MinScale = 0.1, INP_MaxScale = 4.0,
+  })
+  InPhase = self:AddInput("Phase", "Phase", {
+    LINKID_DataType = "Number", INPID_InputControl = "SliderControl",
+    INP_Default = 0.0, INP_MinScale = 0.0, INP_MaxScale = 1.0,
+  })
+  OutImage = self:AddOutput("Output", "Output", { LINKID_DataType = "Image", LINK_Main = 1 })
+end
+
+function ChromaPulse:Process(req)
+  local img = InImage:GetValue(req)
+  if not img then
+    return
+  end
+  -- v1 starter: keep image passthrough while exposing animatable params.
+  OutImage:Set(req, img:CopyOf())
+end

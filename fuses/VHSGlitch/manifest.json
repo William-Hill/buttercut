@@ -1,0 +1,11 @@
+{
+  "name": "VHSGlitch",
+  "version": "1.0.0",
+  "description": "VHS-like glitch with scanline and vertical tear controls.",
+  "tested_on_resolve": "20.2.3",
+  "params": [
+    { "name": "intensity", "type": "number", "default": 0.5, "range": [0.0, 1.0] },
+    { "name": "tear_chance", "type": "number", "default": 0.05, "range": [0.0, 1.0] },
+    { "name": "scanline_strength", "type": "number", "default": 0.6, "range": [0.0, 1.0] }
+  ]
+}

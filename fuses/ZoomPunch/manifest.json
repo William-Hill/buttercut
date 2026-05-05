@@ -1,0 +1,11 @@
+{
+  "name": "ZoomPunch",
+  "version": "1.0.0",
+  "description": "Single-frame punch-in style zoom burst control.",
+  "tested_on_resolve": "20.2.3",
+  "params": [
+    { "name": "amount", "type": "number", "default": 1.08, "range": [1.0, 1.5] },
+    { "name": "duration_frames", "type": "integer", "default": 6, "range": [1, 30] },
+    { "name": "at", "type": "number", "default": 0.0 }
+  ]
+}

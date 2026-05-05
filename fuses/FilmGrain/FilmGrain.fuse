@@ -1,0 +1,36 @@
+FuRegisterClass("FilmGrain", CT_Tool, {
+  REGS_Name = "FilmGrain",
+  REGS_Category = "ButterCut",
+  REGS_OpIconString = "FG",
+  REGS_OpDescription = "Animated film grain controls",
+  REG_NoMotionBlurCtrls = true,
+  REG_NoBlendCtrls = false,
+  REG_OpNoMask = true,
+})
+
+FilmGrain = Class("FilmGrain", Operator)
+
+function FilmGrain:Create()
+  InImage = self:AddInput("Input", "Input", { LINKID_DataType = "Image", LINK_Main = 1 })
+  InIntensity = self:AddInput("Intensity", "Intensity", {
+    LINKID_DataType = "Number", INPID_InputControl = "SliderControl",
+    INP_Default = 0.3, INP_MinScale = 0.0, INP_MaxScale = 1.0,
+  })
+  InSize = self:AddInput("Size", "Size", {
+    LINKID_DataType = "Number", INPID_InputControl = "SliderControl",
+    INP_Default = 1.0, INP_MinScale = 0.5, INP_MaxScale = 4.0,
+  })
+  InMonochrome = self:AddInput("Monochrome", "Monochrome", {
+    LINKID_DataType = "Number", INPID_InputControl = "CheckboxControl",
+    INP_Default = 0.0, INP_MinScale = 0.0, INP_MaxScale = 1.0,
+  })
+  OutImage = self:AddOutput("Output", "Output", { LINKID_DataType = "Image", LINK_Main = 1 })
+end
+
+function FilmGrain:Process(req)
+  local img = InImage:GetValue(req)
+  if not img then
+    return
+  end
+  OutImage:Set(req, img:CopyOf())
+end

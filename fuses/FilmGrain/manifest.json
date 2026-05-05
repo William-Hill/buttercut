@@ -1,0 +1,11 @@
+{
+  "name": "FilmGrain",
+  "version": "1.0.0",
+  "description": "Animated grain overlay.",
+  "tested_on_resolve": "20.2.3",
+  "params": [
+    { "name": "intensity", "type": "number", "default": 0.3, "range": [0.0, 1.0] },
+    { "name": "size", "type": "number", "default": 1.0, "range": [0.5, 4.0] },
+    { "name": "monochrome", "type": "boolean", "default": false }
+  ]
+}

@@ -7,32 +7,47 @@ require 'json'
 
 class GenerateApplyScript
   TEMPLATE_PATH = File.expand_path('templates/apply_recipe.py', __dir__)
-  PLACEHOLDER = '{{RECIPE_PATH}}'.freeze
+  PLACEHOLDER_KEYS = %w[
+    RECIPE_PATH
+    FUSES_SOURCE_DIR
+    RESOLVE_FUSES_DIR
+  ].freeze
+  DEFAULT_FUSES_SOURCE_DIR = File.expand_path('../../../fuses', __dir__)
+  DEFAULT_RESOLVE_FUSES_DIR = File.expand_path(
+    '~/Library/Application Support/Blackmagic Design/DaVinci Resolve/Fusion/Fuses'
+  )
 
-  def self.generate(recipe_path:, output_path:)
-    new(recipe_path: recipe_path, output_path: output_path).generate
+  def self.generate(recipe_path:, output_path:, fuses_source_dir: DEFAULT_FUSES_SOURCE_DIR, resolve_fuses_dir: DEFAULT_RESOLVE_FUSES_DIR)
+    new(
+      recipe_path: recipe_path,
+      output_path: output_path,
+      fuses_source_dir: fuses_source_dir,
+      resolve_fuses_dir: resolve_fuses_dir
+    ).generate
   end
 
-  def initialize(recipe_path:, output_path:)
+  def initialize(recipe_path:, output_path:, fuses_source_dir:, resolve_fuses_dir:)
     raise ArgumentError, "recipe_path required" if recipe_path.nil? || recipe_path.empty?
     raise ArgumentError, "output_path required" if output_path.nil? || output_path.empty?
 
     @recipe_path = File.expand_path(recipe_path)
     @output_path = output_path
+    @fuses_source_dir = File.expand_path(fuses_source_dir)
+    @resolve_fuses_dir = File.expand_path(resolve_fuses_dir)
   end
 
   def generate
     template = File.read(TEMPLATE_PATH)
-    raise "template missing #{PLACEHOLDER}" unless template.include?(PLACEHOLDER)
+    PLACEHOLDER_KEYS.each do |key|
+      placeholder = "{{#{key}}}"
+      raise "template missing #{placeholder}" unless template.include?(placeholder)
+    end
 
-    # JSON string syntax is a strict subset of Python string syntax (both use
-    # double quotes, both escape \ and " the same way, both handle unicode
-    # the same), so JSON.dump produces a valid Python string literal — quotes
-    # included. The template's placeholder appears unquoted for that reason.
-    # Use the block form of sub so backslashes in the replacement aren't
-    # interpreted as regex backreferences.
-    replacement = JSON.dump(@recipe_path)
-    stamped = template.sub(PLACEHOLDER) { replacement }
+    stamped = template
+      .sub('{{RECIPE_PATH}}') { JSON.dump(@recipe_path) }
+      .sub('{{FUSES_SOURCE_DIR}}') { JSON.dump(@fuses_source_dir) }
+      .sub('{{RESOLVE_FUSES_DIR}}') { JSON.dump(@resolve_fuses_dir) }
+
     File.write(@output_path, stamped)
     File.chmod(0o755, @output_path)
     @output_path

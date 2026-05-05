@@ -1,0 +1,36 @@
+FuRegisterClass("LightLeak", CT_Tool, {
+  REGS_Name = "LightLeak",
+  REGS_Category = "ButterCut",
+  REGS_OpIconString = "LL",
+  REGS_OpDescription = "Light leak controls",
+  REG_NoMotionBlurCtrls = true,
+  REG_NoBlendCtrls = false,
+  REG_OpNoMask = true,
+})
+
+LightLeak = Class("LightLeak", Operator)
+
+function LightLeak:Create()
+  InImage = self:AddInput("Input", "Input", { LINKID_DataType = "Image", LINK_Main = 1 })
+  InIntensity = self:AddInput("Intensity", "Intensity", {
+    LINKID_DataType = "Number", INPID_InputControl = "SliderControl",
+    INP_Default = 0.6, INP_MinScale = 0.0, INP_MaxScale = 1.0,
+  })
+  InDirection = self:AddInput("Direction", "Direction", {
+    LINKID_DataType = "Number", INPID_InputControl = "SliderControl",
+    INP_Default = 0.0, INP_MinScale = 0.0, INP_MaxScale = 1.0,
+  })
+  InWarmth = self:AddInput("Warmth", "Warmth", {
+    LINKID_DataType = "Number", INPID_InputControl = "SliderControl",
+    INP_Default = 0.7, INP_MinScale = 0.0, INP_MaxScale = 1.0,
+  })
+  OutImage = self:AddOutput("Output", "Output", { LINKID_DataType = "Image", LINK_Main = 1 })
+end
+
+function LightLeak:Process(req)
+  local img = InImage:GetValue(req)
+  if not img then
+    return
+  end
+  OutImage:Set(req, img:CopyOf())
+end

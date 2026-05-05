@@ -14,14 +14,23 @@ RSpec.describe GenerateApplyScript do
 
       content = File.read(output_path)
       expect(content).to include(%(RECIPE_PATH = "#{File.expand_path(recipe_path)}"))
+      expect(content).to match(/FUSES_SOURCE_DIR\s*=\s*".*\/fuses"/)
+      expect(content).to match(/RESOLVE_FUSES_DIR\s*=\s*"[^"]*Fusion\/Fuses\/?"/)
       expect(content).not_to include('{{RECIPE_PATH}}')
+      expect(content).not_to include('{{FUSES_SOURCE_DIR}}')
+      expect(content).not_to include('{{RESOLVE_FUSES_DIR}}')
     end
   end
 
   it 'JSON-escapes paths containing quotes or backslashes' do
     # Simulate hostile path values without relying on the filesystem to allow
     # them — we're testing the substitution, not Dir.mkdir.
-    instance = described_class.new(recipe_path: '/tmp/r.json', output_path: '/tmp/out.py')
+    instance = described_class.new(
+      recipe_path: '/tmp/r.json',
+      output_path: '/tmp/out.py',
+      fuses_source_dir: '/tmp/fuses',
+      resolve_fuses_dir: '/tmp/resolve-fuses'
+    )
     instance.instance_variable_set(:@recipe_path, %(/tmp/name with "quote" and \\ backslash/r.json))
 
     Dir.mktmpdir do |dir|
@@ -86,13 +95,13 @@ RSpec.describe GenerateApplyScript do
 
   it 'rejects empty recipe_path' do
     expect {
-      described_class.new(recipe_path: '', output_path: 'x')
+      described_class.new(recipe_path: '', output_path: 'x', fuses_source_dir: '/tmp/fuses', resolve_fuses_dir: '/tmp/resolve-fuses')
     }.to raise_error(ArgumentError, /recipe_path/)
   end
 
   it 'rejects nil output_path' do
     expect {
-      described_class.new(recipe_path: 'x', output_path: nil)
+      described_class.new(recipe_path: 'x', output_path: nil, fuses_source_dir: '/tmp/fuses', resolve_fuses_dir: '/tmp/resolve-fuses')
     }.to raise_error(ArgumentError, /output_path/)
   end
 end

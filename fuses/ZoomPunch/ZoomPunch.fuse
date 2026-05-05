@@ -1,0 +1,36 @@
+FuRegisterClass("ZoomPunch", CT_Tool, {
+  REGS_Name = "ZoomPunch",
+  REGS_Category = "ButterCut",
+  REGS_OpIconString = "ZP",
+  REGS_OpDescription = "Animated zoom punch controls",
+  REG_NoMotionBlurCtrls = true,
+  REG_NoBlendCtrls = false,
+  REG_OpNoMask = true,
+})
+
+ZoomPunch = Class("ZoomPunch", Operator)
+
+function ZoomPunch:Create()
+  InImage = self:AddInput("Input", "Input", { LINKID_DataType = "Image", LINK_Main = 1 })
+  InAmount = self:AddInput("Amount", "Amount", {
+    LINKID_DataType = "Number", INPID_InputControl = "SliderControl",
+    INP_Default = 1.08, INP_MinScale = 1.0, INP_MaxScale = 1.5,
+  })
+  InDurationFrames = self:AddInput("DurationFrames", "DurationFrames", {
+    LINKID_DataType = "Number", INPID_InputControl = "SliderControl",
+    INP_Default = 6, INP_MinScale = 1, INP_MaxScale = 30,
+  })
+  InAt = self:AddInput("At", "At", {
+    LINKID_DataType = "Number", INPID_InputControl = "SliderControl",
+    INP_Default = 0.0, INP_MinScale = 0.0, INP_MaxScale = 200.0,
+  })
+  OutImage = self:AddOutput("Output", "Output", { LINKID_DataType = "Image", LINK_Main = 1 })
+end
+
+function ZoomPunch:Process(req)
+  local img = InImage:GetValue(req)
+  if not img then
+    return
+  end
+  OutImage:Set(req, img:CopyOf())
+end

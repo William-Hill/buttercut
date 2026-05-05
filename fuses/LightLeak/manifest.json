@@ -1,0 +1,11 @@
+{
+  "name": "LightLeak",
+  "version": "1.0.0",
+  "description": "Animated warm flare drifting across frame.",
+  "tested_on_resolve": "20.2.3",
+  "params": [
+    { "name": "intensity", "type": "number", "default": 0.6, "range": [0.0, 1.0] },
+    { "name": "direction", "type": "number", "default": 0.0, "range": [0.0, 1.0] },
+    { "name": "warmth", "type": "number", "default": 0.7, "range": [0.0, 1.0] }
+  ]
+}
