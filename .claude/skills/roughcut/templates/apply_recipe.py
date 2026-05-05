@@ -306,13 +306,14 @@ class Applier:
             count = int(raw) if raw is not None else 0
         except (TypeError, ValueError):
             return out
-        for i in range(max(count, 0)):
+        # Resolve's Fusion comp index is 1-based (1 .. count inclusive).
+        for i in range(1, max(count, 0) + 1):
             try:
                 c = item.GetFusionComp(i)
-                if c:
-                    out.append(c)
-            except Exception:
-                pass
+            except (AttributeError, OSError, TypeError, ValueError):
+                continue
+            if c:
+                out.append(c)
         return out
 
     def _comp_display_name(self, comp):
