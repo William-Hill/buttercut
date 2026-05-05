@@ -87,6 +87,8 @@ module ButtercutUiSidecar
         respond_error(id: id, code: -32010, message: "missing_api_key")
       when /\Ainvalid_api_key/
         respond_error(id: id, code: -32012, message: e.message)
+      when /\A(resolve_[a-z_]+|missing_[a-z_]+):/
+        respond_error(id: id, code: -32000, message: e.message)
       else
         respond_error(id: id, code: -32000, message: "#{e.class}: #{e.message}")
       end
