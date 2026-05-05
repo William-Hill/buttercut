@@ -1,6 +1,8 @@
 require 'spec_helper'
 require 'json'
 require 'tmpdir'
+require 'fileutils'
+require 'buttercut/fuse_library'
 
 RSpec.describe ButterCut::Recipe do
   let(:valid_hash) do
@@ -74,7 +76,7 @@ RSpec.describe ButterCut::Recipe do
   describe 'version validation' do
     it 'rejects an unknown version' do
       expect {
-        described_class.from_hash(valid_hash.merge("version" => 2))
+        described_class.from_hash(valid_hash.merge("version" => 3))
       }.to raise_error(ArgumentError, /version/)
     end
 
@@ -331,6 +333,69 @@ RSpec.describe ButterCut::Recipe do
       bad = valid_hash.dup
       bad["powergrade"] = { "name" => "X", "apply_to" => "some" }
       expect { described_class.from_hash(bad) }.to raise_error(ArgumentError, /apply_to/)
+    end
+  end
+
+  describe 'schema v2 fusion_effects' do
+    let(:base_clip) { { "index" => 1, "source_file" => "a.mov" } }
+
+    let(:test_manifest) do
+      {
+        "name" => "ChromaPulse", "version" => "1.0.0", "description" => "x",
+        "params" => [{ "name" => "intensity", "type" => "number", "default" => 0.4, "range" => [0.0, 1.0] }]
+      }
+    end
+
+    def fuse_lib_with(manifest)
+      Dir.mktmpdir do |root|
+        dir = File.join(root, manifest['name'])
+        FileUtils.mkdir_p(dir)
+        File.write(File.join(dir, 'manifest.json'), JSON.pretty_generate(manifest))
+        File.write(File.join(dir, "#{manifest['name']}.fuse"), "-- stub")
+        yield ButterCut::FuseLibrary.load(root: root)
+      end
+    end
+
+    it 'accepts a v2 recipe with absent fusion_effects' do
+      fuse_lib_with(test_manifest) do |lib|
+        r = described_class.new(version: 2, library: 'L', timeline: 'T', clips: [base_clip], fuse_library: lib)
+        expect(r.to_h['version']).to eq(2)
+        expect(r.to_h['clips'].first).not_to have_key('fusion_effects')
+      end
+    end
+
+    it 'accepts and round-trips fusion_effects' do
+      fuse_lib_with(test_manifest) do |lib|
+        clip = base_clip.merge("fusion_effects" => [{ "fuse" => "ChromaPulse", "params" => { "intensity" => 0.4 } }])
+        r = described_class.new(version: 2, library: 'L', timeline: 'T', clips: [clip], fuse_library: lib)
+        expect(r.to_h['clips'].first['fusion_effects']).to eq([{ "fuse" => "ChromaPulse", "params" => { "intensity" => 0.4 } }])
+      end
+    end
+
+    it 'rejects unknown fuse names' do
+      fuse_lib_with(test_manifest) do |lib|
+        clip = base_clip.merge("fusion_effects" => [{ "fuse" => "Nope", "params" => {} }])
+        expect {
+          described_class.new(version: 2, library: 'L', timeline: 'T', clips: [clip], fuse_library: lib)
+        }.to raise_error(ArgumentError, /unknown fuse/i)
+      end
+    end
+
+    it 'rejects bad params (out of range)' do
+      fuse_lib_with(test_manifest) do |lib|
+        clip = base_clip.merge("fusion_effects" => [{ "fuse" => "ChromaPulse", "params" => { "intensity" => 9.0 } }])
+        expect {
+          described_class.new(version: 2, library: 'L', timeline: 'T', clips: [clip], fuse_library: lib)
+        }.to raise_error(ArgumentError, /range/)
+      end
+    end
+  end
+
+  describe 'schema v1 backward compat' do
+    it 'still loads v1 recipes' do
+      r = described_class.new(version: 1, library: 'L', timeline: 'T',
+                              clips: [{ "index" => 1, "source_file" => "a.mov" }])
+      expect(r.to_h['version']).to eq(1)
     end
   end
 end

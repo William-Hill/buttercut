@@ -1,4 +1,5 @@
 require 'json'
+require_relative 'fuse_library'
 
 class ButterCut
   # Editorial recipe emitted alongside the rough-cut XML. Captures per-clip
@@ -6,7 +7,9 @@ class ButterCut
   # an optional title card, render preset, and PowerGrade reference. The
   # recipe is consumed by a Resolve apply script (see Sprint 1).
   class Recipe
-    SCHEMA_VERSION = 1
+    SCHEMA_VERSION = 2
+    SUPPORTED_VERSIONS = [1, 2].freeze
+    DEFAULT_FUSE_ROOT = File.expand_path('../../fuses', __dir__)
 
     CLIP_COLOR_TAGS = %w[
       Orange Apricot Yellow Lime Olive Green Teal Navy Blue
@@ -22,7 +25,7 @@ class ButterCut
     TRANSITION_TYPES = %w[dip_to_color cross_dissolve].freeze
     DIP_COLORS = %w[black white].freeze
 
-    def self.from_hash(hash)
+    def self.from_hash(hash, fuse_library: nil)
       raise ArgumentError, "recipe hash required" unless hash.is_a?(Hash)
 
       new(
@@ -33,15 +36,16 @@ class ButterCut
         render_preset: hash["render_preset"],
         powergrade: hash["powergrade"],
         transitions: hash.key?("transitions") ? hash["transitions"] : [],
-        title_card: hash["title_card"]
+        title_card: hash["title_card"],
+        fuse_library: fuse_library
       )
     end
 
-    def self.load(path)
-      from_hash(JSON.parse(File.read(path)))
+    def self.load(path, fuse_library: nil)
+      from_hash(JSON.parse(File.read(path)), fuse_library: fuse_library)
     end
 
-    def initialize(version:, library:, timeline:, clips:, render_preset: nil, powergrade: nil, transitions: [], title_card: nil)
+    def initialize(version:, library:, timeline:, clips:, render_preset: nil, powergrade: nil, transitions: [], title_card: nil, fuse_library: nil)
       @version = version
       @library = library
       @timeline = timeline
@@ -50,6 +54,7 @@ class ButterCut
       @powergrade = powergrade
       @transitions = transitions
       @title_card = title_card
+      @fuse_library = fuse_library
 
       validate!
     end
@@ -90,7 +95,9 @@ class ButterCut
     end
 
     def validate_version!
-      raise ArgumentError, "version must be #{SCHEMA_VERSION}, got #{@version.inspect}" unless @version == SCHEMA_VERSION
+      unless SUPPORTED_VERSIONS.include?(@version)
+        raise ArgumentError, "version must be one of #{SUPPORTED_VERSIONS.inspect}, got #{@version.inspect}"
+      end
     end
 
     def validate_string!(value, field)
@@ -140,6 +147,24 @@ class ButterCut
       markers = clip.key?("markers") ? clip["markers"] : []
       raise ArgumentError, "clip #{clip["index"]} markers must be an array" unless markers.is_a?(Array)
       markers.each { |marker| validate_marker!(marker, clip["index"]) }
+
+      validate_fusion_effects!(clip) if clip.key?("fusion_effects")
+    end
+
+    def fuse_library
+      @fuse_library ||= ButterCut::FuseLibrary.load(root: DEFAULT_FUSE_ROOT)
+    end
+
+    def validate_fusion_effects!(clip)
+      effects = clip["fusion_effects"]
+      raise ArgumentError, "clip #{clip["index"]} fusion_effects must be an array" unless effects.is_a?(Array)
+      effects.each_with_index do |effect, i|
+        unless effect.is_a?(Hash) && effect["fuse"].is_a?(String) && !effect["fuse"].empty?
+          raise ArgumentError, "clip #{clip["index"]} fusion_effects[#{i}] must be a hash with a 'fuse' string"
+        end
+        params = effect["params"] || {}
+        fuse_library.validate_params!(effect["fuse"], params)
+      end
     end
 
     def validate_speed_ramp!(ramp, clip_index)
