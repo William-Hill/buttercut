@@ -14,8 +14,8 @@ jobs:
         with:
           ruby-version: "3.2"
           bundler-cache: true
-      - name: Install luacheck
-        run: sudo apt-get update && sudo apt-get install -y luarocks && sudo luarocks install luacheck
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg luarocks && sudo luarocks install luacheck
       - name: RSpec
         run: bundle exec rspec
       - name: Lint fuses

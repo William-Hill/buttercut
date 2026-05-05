@@ -12,7 +12,7 @@ This slots into the existing "FCPXML for assembly, recipe + apply.py for Resolve
 
 | Question | Decision |
 | --- | --- |
-| Verification strategy | Lua lint in CI + manual `rake verify_fuses` smoke gated before release |
+| Verification strategy | Lua lint in CI + manual `ruby .claude/scripts/verify_fuses.rb <fixture.mov>` smoke gated before release |
 | Fuse library location | In-tree at `fuses/` |
 | Activation | Explicit user request only (no roughcut auto-suggest in v1) |
 | First-install UX | apply.py copies fuses; if `AddTool` returns None, prompt the user to restart Resolve once and re-run |
@@ -20,7 +20,7 @@ This slots into the existing "FCPXML for assembly, recipe + apply.py for Resolve
 
 ## Fuse package layout
 
-```
+```text
 fuses/
   ChromaPulse/
     ChromaPulse.fuse        # Lua source
@@ -128,7 +128,7 @@ Failure modes:
 - Catches: syntax errors, undefined identifiers, typos in API calls, unused vars.
 - Does **not** catch: "does the fuse actually produce pixels," wrong param wiring, runtime errors.
 
-**Manual gate: `rake verify_fuses[fixture_path]`**
+**Manual gate: `ruby .claude/scripts/verify_fuses.rb <fixture.mov>`**
 
 - Reads the fuse library, builds a synthetic recipe with one clip per registered fuse pointing at the fixture video.
 - Generates a temp apply.py, prints instructions to the user: open fixture in Resolve, run the script, paste the output here.
@@ -175,7 +175,7 @@ clips:
 - RSpec for `Recipe`: v2 round-trip with `fusion_effects`, validation of fuse name and params, v1 backwards compat (no `fusion_effects`).
 - RSpec for `recipe_from_roughcut.rb`: passes `fusion_effects` through unchanged.
 - Python unit tests for the new template helpers where feasible (the install-fuses copy logic is testable without Resolve).
-- Manual: `rake verify_fuses` against a fixture in Resolve before merge.
+- Manual: `ruby .claude/scripts/verify_fuses.rb <fixture.mov>` against a fixture in Resolve before merge.
 
 ## Rollout
 

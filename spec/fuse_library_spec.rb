@@ -73,4 +73,22 @@ RSpec.describe ButterCut::FuseLibrary do
       expect { lib.validate_params!('Missing', {}) }.to raise_error(ArgumentError, /unknown fuse/i)
     end
   end
+
+  it 'validates integer params against declared range' do
+    manifest = {
+      "name" => "ZoomPunch",
+      "version" => "1.0.0",
+      "description" => "test",
+      "params" => [
+        { "name" => "duration_frames", "type" => "integer", "default" => 6, "range" => [1, 30] }
+      ]
+    }
+    Dir.mktmpdir do |root|
+      write_fuse(root, 'ZoomPunch', manifest)
+      lib = described_class.load(root: root)
+      expect { lib.validate_params!('ZoomPunch', { "duration_frames" => 6 }) }.not_to raise_error
+      expect { lib.validate_params!('ZoomPunch', { "duration_frames" => 0 }) }.to raise_error(ArgumentError, /range/)
+      expect { lib.validate_params!('ZoomPunch', { "duration_frames" => 99 }) }.to raise_error(ArgumentError, /range/)
+    end
+  end
 end

@@ -55,10 +55,22 @@ class GenerateApplyScript
 end
 
 if __FILE__ == $PROGRAM_NAME
-  if ARGV.length != 2
-    warn "Usage: #{$PROGRAM_NAME} <recipe.json> <output_apply.py>"
+  if ARGV.length < 2 || ARGV.length > 3
+    warn "Usage: #{$PROGRAM_NAME} <recipe.json> <output_apply.py> [resolve_fuses_dir]"
     exit 1
   end
-  GenerateApplyScript.generate(recipe_path: ARGV[0], output_path: ARGV[1])
+  resolve_fuses_dir =
+    if ARGV.length == 3 && !ARGV[2].to_s.strip.empty?
+      ARGV[2]
+    elsif !(ENV['BUTTERCUT_RESOLVE_FUSES_DIR'] || '').to_s.strip.empty?
+      ENV['BUTTERCUT_RESOLVE_FUSES_DIR']
+    else
+      DEFAULT_RESOLVE_FUSES_DIR
+    end
+  GenerateApplyScript.generate(
+    recipe_path: ARGV[0],
+    output_path: ARGV[1],
+    resolve_fuses_dir: resolve_fuses_dir
+  )
   puts "✓ Apply script generated: #{ARGV[1]}"
 end

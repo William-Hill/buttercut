@@ -241,13 +241,12 @@ class Applier:
             return
 
         self.counts["fusion_effects"][1] += len(effects)
-        try:
-            comp = item.AddFusionComp() if hasattr(item, "AddFusionComp") else None
-        except Exception as e:
-            self.warnings.append(f"clip {idx}: AddFusionComp raised {type(e).__name__}: {e}")
-            return
+        comp = self._resolve_fusion_comp(item, idx)
         if not comp:
-            self.warnings.append(f"clip {idx}: AddFusionComp returned None")
+            return
+
+        if self._fusion_effect_tools_present(comp, effects):
+            self.counts["fusion_effects"][0] += len(effects)
             return
 
         media_in = self._find_tool(comp, "MediaIn1") or self._find_first_by_id(comp, "MediaIn")
@@ -277,11 +276,16 @@ class Applier:
 
             for pname, pval in (effect.get("params") or {}).items():
                 try:
-                    tool.SetInput(pname, pval)
+                    result = tool.SetInput(pname, pval)
                 except Exception as e:
                     self.warnings.append(
                         f"clip {idx}: SetInput({pname!r}, {pval!r}) on {fuse_name} raised {type(e).__name__}: {e}"
                     )
+                else:
+                    if result is False:
+                        self.warnings.append(
+                            f"clip {idx}: SetInput({pname!r}, {pval!r}) on {fuse_name} returned False"
+                        )
 
             prev_output = tool.Output if hasattr(tool, "Output") else tool.FindMainOutput(1)
             self.counts["fusion_effects"][0] += 1
@@ -291,6 +295,84 @@ class Applier:
             media_out_input.ConnectTo(prev_output)
         except Exception as e:
             self.warnings.append(f"clip {idx}: connect MediaOut raised {type(e).__name__}: {e}")
+
+    def _list_fusion_comps(self, item):
+        out = []
+        if not hasattr(item, "GetFusionCompCount") or not hasattr(item, "GetFusionComp"):
+            return out
+        try:
+            raw = item.GetFusionCompCount()
+            count = int(raw) if raw is not None else 0
+        except (TypeError, ValueError):
+            return out
+        for i in range(max(count, 0)):
+            try:
+                c = item.GetFusionComp(i)
+                if c:
+                    out.append(c)
+            except Exception:
+                pass
+        return out
+
+    def _comp_display_name(self, comp):
+        for attr in ("GetName", "Name"):
+            if hasattr(comp, attr):
+                try:
+                    v = getattr(comp, attr)
+                    name = v() if callable(v) else v
+                    if name:
+                        return str(name)
+                except Exception:
+                    pass
+        try:
+            if hasattr(comp, "GetAttrs"):
+                attrs = comp.GetAttrs() or {}
+                if isinstance(attrs, dict):
+                    for key in ("TOOLS_Name", "COMP_NAME", "Name"):
+                        val = attrs.get(key)
+                        if val:
+                            return str(val)
+        except Exception:
+            pass
+        return ""
+
+    def _comp_is_buttercut(self, comp):
+        return self._comp_display_name(comp).startswith("ButterCut_")
+
+    def _try_tag_buttercut_comp(self, comp, idx):
+        try:
+            if hasattr(comp, "SetAttrs"):
+                comp.SetAttrs({"TOOLS_Name": f"ButterCut_clip{idx}"})
+        except Exception:
+            pass
+
+    def _resolve_fusion_comp(self, item, idx):
+        comps = self._list_fusion_comps(item)
+        for c in comps:
+            if self._comp_is_buttercut(c):
+                return c
+        if comps:
+            return comps[0]
+        if not hasattr(item, "AddFusionComp"):
+            self.warnings.append(f"clip {idx}: timeline item has no AddFusionComp")
+            return None
+        try:
+            comp = item.AddFusionComp()
+        except Exception as e:
+            self.warnings.append(f"clip {idx}: AddFusionComp raised {type(e).__name__}: {e}")
+            return None
+        if not comp:
+            self.warnings.append(f"clip {idx}: AddFusionComp returned None")
+            return None
+        self._try_tag_buttercut_comp(comp, idx)
+        return comp
+
+    def _fusion_effect_tools_present(self, comp, effects):
+        for eff in effects:
+            fuse = eff["fuse"]
+            if not (self._find_first_by_id(comp, fuse) or self._find_tool(comp, fuse)):
+                return False
+        return True
 
     def _find_tool(self, comp, name):
         try:

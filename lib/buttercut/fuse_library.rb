@@ -84,6 +84,12 @@ class ButterCut
         end
       when 'integer'
         raise ArgumentError, "fuse #{fuse_name}: param #{key} type must be integer, got #{value.class}" unless value.is_a?(Integer)
+        if decl['range'].is_a?(Array) && decl['range'].length == 2
+          lo, hi = decl['range']
+          unless value >= lo && value <= hi
+            raise ArgumentError, "fuse #{fuse_name}: param #{key} out of range (#{lo}..#{hi}), got #{value}"
+          end
+        end
       when 'string'
         raise ArgumentError, "fuse #{fuse_name}: param #{key} type must be string, got #{value.class}" unless value.is_a?(String)
       when 'boolean'
