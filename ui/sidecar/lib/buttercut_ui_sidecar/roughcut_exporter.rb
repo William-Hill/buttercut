@@ -29,12 +29,16 @@ module ButtercutUiSidecar
       xml_path = yaml.parent.join("#{stem}#{fmt[:ext]}")
       run_export!(yaml_path: yaml, xml_path: xml_path, editor: fmt[:editor])
       xml_base = xml_path.to_s.sub(/\.[^.]+\z/, "")
+      recipe_path = Pathname.new("#{xml_base}.recipe.json")
+      apply_path = Pathname.new("#{xml_base}_apply.py")
+      missing = [xml_path, recipe_path, apply_path].reject(&:file?)
+      raise "missing_artifacts: #{missing.map(&:to_s).join(', ')}" unless missing.empty?
 
       {
         yaml_path: yaml.to_s,
         xml_path: xml_path.to_s,
-        recipe_path: "#{xml_base}.recipe.json",
-        apply_path: "#{xml_base}_apply.py",
+        recipe_path: recipe_path.to_s,
+        apply_path: apply_path.to_s,
         format: format.to_s.strip.downcase
       }
     end

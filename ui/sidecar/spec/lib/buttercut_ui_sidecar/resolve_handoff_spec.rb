@@ -35,6 +35,24 @@ RSpec.describe ButtercutUiSidecar::ResolveHandoff do
     end
   end
 
+  it "raises when recipe timeline is missing or blank" do
+    Dir.mktmpdir do |root|
+      apply_path = File.join(root, "cut_apply.py")
+      recipe_path = File.join(root, "cut.recipe.json")
+      File.write(apply_path, "#!/usr/bin/env python3\n")
+      File.write(recipe_path, JSON.dump({ version: 1 }))
+
+      running = instance_double(Process::Status, success?: true)
+      ok = instance_double(Process::Status, success?: true)
+      allow(Open3).to receive(:capture2).with("pgrep", "-x", "Resolve").and_return(["123\n", running])
+      allow(Open3).to receive(:capture2e).with("open", "-a", "DaVinci Resolve").and_return(["", ok])
+
+      expect {
+        described_class.new.run(apply_path: apply_path, recipe_path: recipe_path)
+      }.to raise_error(/missing_recipe_timeline/)
+    end
+  end
+
   it "raises resolve_launch_failed when open -a DaVinci Resolve fails" do
     Dir.mktmpdir do |root|
       apply_path = File.join(root, "cut_apply.py")

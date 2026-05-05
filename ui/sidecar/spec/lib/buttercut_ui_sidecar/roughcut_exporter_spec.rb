@@ -17,7 +17,13 @@ RSpec.describe ButtercutUiSidecar::RoughcutExporter do
       File.write(yaml_path, YAML.dump("clips" => []))
 
       status = instance_double(Process::Status, success?: true)
-      allow(Open3).to receive(:capture2e).and_return(["ok", status])
+      allow(Open3).to receive(:capture2e) do
+        base = File.join(root, "roughcuts", "delivery_cut")
+        File.write("#{base}.xml", "<x/>")
+        File.write("#{base}.recipe.json", "{}")
+        File.write("#{base}_apply.py", "#!/usr/bin/env python3\n")
+        ["ok", status]
+      end
 
       result = described_class.new(repo_root: repo_root).export(
         yaml_path: yaml_path,
@@ -39,7 +45,13 @@ RSpec.describe ButtercutUiSidecar::RoughcutExporter do
       File.write(yaml_path, YAML.dump("clips" => []))
 
       status = instance_double(Process::Status, success?: true)
-      allow(Open3).to receive(:capture2e).and_return(["ok", status])
+      allow(Open3).to receive(:capture2e) do
+        base = File.join(root, "roughcuts", "roughcut_ui_20260504_120000")
+        File.write("#{base}.fcpxml", "<x/>")
+        File.write("#{base}.recipe.json", "{}")
+        File.write("#{base}_apply.py", "#!/usr/bin/env python3\n")
+        ["ok", status]
+      end
 
       result = described_class.new(repo_root: repo_root).export(
         yaml_path: yaml_path,

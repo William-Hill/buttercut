@@ -181,9 +181,10 @@ module ButtercutUiSidecar
     def export_roughcut_artifacts(params)
       library = params.fetch("library")
       library_dir(library)
+      yaml_safe = assert_artifact_path_in_library!(library, params.fetch("yaml_path"), "yaml_path")
       exporter = ButtercutUiSidecar::RoughcutExporter.new(repo_root: @repo_root.to_s)
       exporter.export(
-        yaml_path: params.fetch("yaml_path"),
+        yaml_path: yaml_safe,
         format: params.fetch("format"),
         filename: params["filename"]
       )
@@ -192,11 +193,31 @@ module ButtercutUiSidecar
     def send_to_resolve(params)
       library = params.fetch("library")
       library_dir(library)
+      apply_safe = assert_artifact_path_in_library!(library, params.fetch("apply_path"), "apply_path")
+      recipe_safe = assert_artifact_path_in_library!(library, params.fetch("recipe_path"), "recipe_path")
       handoff = ButtercutUiSidecar::ResolveHandoff.new
       handoff.run(
-        apply_path: params.fetch("apply_path"),
-        recipe_path: params.fetch("recipe_path")
+        apply_path: apply_safe,
+        recipe_path: recipe_safe
       )
+    end
+
+    # Reject paths outside the resolved library directory (path traversal / arbitrary script execution).
+    def assert_artifact_path_in_library!(library, path, label)
+      lib_real = File.realpath(library_dir(library).to_s)
+      prefix = lib_real + File::SEPARATOR
+      expanded = Pathname.new(path.to_s).expand_path.to_s
+      resolved =
+        begin
+          File.realpath(expanded)
+        rescue Errno::ENOENT
+          expanded
+        end
+      unless resolved == lib_real || resolved.start_with?(prefix)
+        raise ArgumentError, "#{label} outside library directory"
+      end
+
+      resolved
     end
 
     def roughcut_prerequisites(name)

@@ -3,9 +3,13 @@
 require "json"
 require "open3"
 require "pathname"
+require "timeout"
 
 module ButtercutUiSidecar
   class ResolveHandoff
+    OPEN_RESOLVE_TIMEOUT_SEC = 15
+    PRECHECK_TIMEOUT_SEC = 45
+    APPLY_SCRIPT_TIMEOUT_SEC = 300
     PRECHECK = <<~PY.freeze
       import json
       import sys
@@ -60,11 +64,16 @@ module ButtercutUiSidecar
       activate_resolve!
 
       recipe_obj = JSON.parse(recipe.read)
-      expected_timeline = recipe_obj["timeline"].to_s
+      expected_timeline = recipe_obj["timeline"].to_s.strip
+      if expected_timeline.empty?
+        raise "missing_recipe_timeline: Recipe JSON has no timeline name. Re-export the rough cut to regenerate the recipe."
+      end
       precheck = precheck_resolve(expected_timeline: expected_timeline)
       raise precheck_error(precheck) unless precheck["ok"]
 
-      out, status = Open3.capture2e("python3", apply.to_s)
+      out, status = with_handoff_timeout(APPLY_SCRIPT_TIMEOUT_SEC, "Apply script") do
+        Open3.capture2e("python3", apply.to_s)
+      end
       raise normalize_apply_failure(out) unless status.success?
 
       {
@@ -85,7 +94,9 @@ module ButtercutUiSidecar
     end
 
     def activate_resolve!
-      out, status = Open3.capture2e("open", "-a", "DaVinci Resolve")
+      out, status = with_handoff_timeout(OPEN_RESOLVE_TIMEOUT_SEC, "Open Resolve") do
+        Open3.capture2e("open", "-a", "DaVinci Resolve")
+      end
       return if status.success?
 
       detail = out.to_s.strip
@@ -94,12 +105,20 @@ module ButtercutUiSidecar
     end
 
     def precheck_resolve(expected_timeline:)
-      out, status = Open3.capture2e("python3", "-c", PRECHECK, expected_timeline.to_s)
+      out, status = with_handoff_timeout(PRECHECK_TIMEOUT_SEC, "Resolve precheck") do
+        Open3.capture2e("python3", "-c", PRECHECK, expected_timeline.to_s)
+      end
       raise "resolve_precheck_failed: #{out.strip}" unless status.success?
 
       JSON.parse(out)
     rescue JSON::ParserError
       raise "resolve_precheck_failed: #{out.to_s.strip}"
+    end
+
+    def with_handoff_timeout(seconds, label)
+      Timeout.timeout(seconds) { yield }
+    rescue Timeout::Error
+      raise "resolve_handoff_timeout: #{label} exceeded #{seconds}s — try again or restart Resolve if it is not responding."
     end
 
     def precheck_error(precheck)

@@ -52,22 +52,38 @@ const ARTIFACT_PATH_KEYS: (keyof RoughcutArtifactPaths)[] = [
 ];
 type ExportFormat = "resolve" | "premiere" | "fcpx";
 
+function normalizeSlashes(p: string): string {
+  return p.replace(/\\/g, "/");
+}
+
 function dirname(path: string): string {
-  const i = path.lastIndexOf("/");
-  if (i <= 0) return path;
-  return path.slice(0, i);
+  const n = normalizeSlashes(path).replace(/\/+$/, "");
+  if (!n) return ".";
+  const i = n.lastIndexOf("/");
+  if (i < 0) return ".";
+  if (i === 0) return "/";
+  return n.slice(0, i) || ".";
 }
 
 function basenameNoExt(path: string): string {
-  const leaf = path.split("/").pop() ?? path;
-  return leaf.replace(/\.[^.]+$/, "");
+  const n = normalizeSlashes(path);
+  const leaf = n.split("/").pop() ?? path;
+  const lastDot = leaf.lastIndexOf(".");
+  if (lastDot <= 0) return leaf;
+  return leaf.slice(0, lastDot);
 }
 
 function normalizeSidecarError(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object" && "message" in error) {
+    const msg = (error as { message?: unknown }).message;
+    if (typeof msg === "string" && msg.trim()) return msg.trim();
+  }
   const text = String(error);
   try {
     const parsed = JSON.parse(text) as { message?: string };
-    return parsed.message ?? text;
+    if (parsed.message && parsed.message.trim()) return parsed.message;
+    return text;
   } catch {
     return text;
   }
@@ -281,7 +297,7 @@ export default function BriefComposer({ library, videos }: { library: string; vi
     setExportError(null);
     setExportStatus(format === "resolve" ? "Preparing Resolve export…" : "Exporting artifacts…");
     try {
-      const next = await exportRoughcutArtifacts(library, donePaths.yaml_path, format, exportFilename);
+      const next = await exportRoughcutArtifacts(library, donePaths.yaml_path, format, exportFilename.trim());
       setDonePaths(next);
       setExportFormat(format);
       setExportStatus(`Export complete (${format.toUpperCase()}).`);
