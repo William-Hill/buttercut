@@ -2,6 +2,7 @@ require 'spec_helper'
 require 'tmpdir'
 require 'yaml'
 require 'json'
+require 'fileutils'
 
 require_relative '../.claude/skills/roughcut/recipe_from_roughcut'
 
@@ -10,6 +11,23 @@ RSpec.describe RecipeFromRoughcut do
     path = File.join(dir, name)
     File.write(path, YAML.dump(hash))
     path
+  end
+
+  def test_manifest
+    {
+      "name" => "ChromaPulse", "version" => "1.0.0", "description" => "x",
+      "params" => [{ "name" => "intensity", "type" => "number", "default" => 0.4, "range" => [0.0, 1.0] }]
+    }
+  end
+
+  def fuse_lib_with(manifest)
+    Dir.mktmpdir do |root|
+      dir = File.join(root, manifest['name'])
+      FileUtils.mkdir_p(dir)
+      File.write(File.join(dir, 'manifest.json'), JSON.pretty_generate(manifest))
+      File.write(File.join(dir, "#{manifest['name']}.fuse"), "-- stub")
+      yield ButterCut::FuseLibrary.load(root: root)
+    end
   end
 
   let(:full_roughcut) do
@@ -57,7 +75,7 @@ RSpec.describe RecipeFromRoughcut do
       )
 
       h = JSON.parse(File.read(recipe_path))
-      expect(h["version"]).to eq(1)
+      expect(h["version"]).to eq(2)
       expect(h["library"]).to eq("march-30-workout")
       expect(h["timeline"]).to eq("highlight-reel_20260430_184655")
       expect(h["clips"].map { |c| c["index"] }).to eq([1, 2, 3, 4])
@@ -140,6 +158,42 @@ RSpec.describe RecipeFromRoughcut do
           library_name: "l", timeline_name: "t"
         )
       }.to raise_error(ArgumentError, /color_tag/)
+    end
+  end
+
+  it 'passes fusion_effects through from yaml to recipe' do
+    roughcut = {
+      "clips" => [
+        {
+          "source_file" => "test.mp4",
+          "in_point" => "00:00:00.00",
+          "out_point" => "00:00:02.00",
+          "fusion_effects" => [
+            { "fuse" => "ChromaPulse", "params" => { "intensity" => 0.4 } }
+          ]
+        }
+      ]
+    }
+    Dir.mktmpdir do |dir|
+      yaml_path = write_yaml(dir, "fusion.yaml", roughcut)
+      recipe_path = File.join(dir, "fusion.recipe.json")
+
+      fuse_lib_with(test_manifest) do |lib|
+        # Create a RecipeFromRoughcut and use the built hash directly
+        # so we can validate without going through Recipe.from_hash
+        exporter = described_class.new(
+          roughcut_path: yaml_path,
+          recipe_path: recipe_path,
+          library_name: "test-lib",
+          timeline_name: "fusion-test"
+        )
+        hash = exporter.send(:build_hash)
+
+        # Verify the passthrough worked
+        expect(hash["clips"].first["fusion_effects"]).to eq(
+          [{ "fuse" => "ChromaPulse", "params" => { "intensity" => 0.4 } }]
+        )
+      end
     end
   end
 end
