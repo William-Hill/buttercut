@@ -15,6 +15,7 @@ Scope (locked by Sprint 1, Phase 3 audit on Resolve 20.2.3):
 """
 
 from __future__ import annotations
+from collections import Counter
 import json
 import hashlib
 import os
@@ -351,8 +352,6 @@ class Applier:
         for c in comps:
             if self._comp_is_buttercut(c):
                 return c
-        if comps:
-            return comps[0]
         if not hasattr(item, "AddFusionComp"):
             self.warnings.append(f"clip {idx}: timeline item has no AddFusionComp")
             return None
@@ -367,10 +366,21 @@ class Applier:
         self._try_tag_buttercut_comp(comp, idx)
         return comp
 
+    def _count_tools_with_id(self, comp, tool_id):
+        try:
+            tools = comp.GetToolList(False, tool_id) or {}
+        except Exception:
+            return 0
+        if isinstance(tools, dict):
+            return len(tools)
+        if isinstance(tools, (list, tuple)):
+            return len(tools)
+        return 1 if tools else 0
+
     def _fusion_effect_tools_present(self, comp, effects):
-        for eff in effects:
-            fuse = eff["fuse"]
-            if not (self._find_first_by_id(comp, fuse) or self._find_tool(comp, fuse)):
+        expected = Counter(e["fuse"] for e in effects)
+        for fuse, need in expected.items():
+            if self._count_tools_with_id(comp, fuse) != need:
                 return False
         return True
 
@@ -534,9 +544,12 @@ def main():
     with open(RECIPE_PATH, encoding="utf-8") as f:
         recipe = json.load(f)
 
-    expected_version = 2
-    if recipe.get("version") != expected_version:
-        print(f"[apply_recipe] ERROR: recipe version {recipe.get('version')!r} unsupported (expected {expected_version})")
+    supported_versions = {1, 2}
+    if recipe.get("version") not in supported_versions:
+        print(
+            f"[apply_recipe] ERROR: recipe version {recipe.get('version')!r} unsupported "
+            f"(expected one of {sorted(supported_versions)})"
+        )
         sys.exit(1)
 
     resolve = get_resolve()

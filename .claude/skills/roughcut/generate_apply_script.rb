@@ -65,7 +65,7 @@ if __FILE__ == $PROGRAM_NAME
     elsif !(ENV['BUTTERCUT_RESOLVE_FUSES_DIR'] || '').to_s.strip.empty?
       ENV['BUTTERCUT_RESOLVE_FUSES_DIR']
     else
-      DEFAULT_RESOLVE_FUSES_DIR
+      GenerateApplyScript::DEFAULT_RESOLVE_FUSES_DIR
     end
   GenerateApplyScript.generate(
     recipe_path: ARGV[0],

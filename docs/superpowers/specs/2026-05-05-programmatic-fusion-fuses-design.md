@@ -98,10 +98,10 @@ Validation rules in `Recipe`:
 
 ## Python components (`apply_recipe.py` template)
 
-New phases inserted into `Applier.apply()` between `_apply_per_clip` and `_apply_render_preset`:
+Phase order in `Applier.apply()`:
 
-1. **`_install_fuses`** — walk `recipe["clips"]`, collect distinct `fuse` names referenced. For each, copy from `FUSES_SOURCE_DIR/<name>/<name>.fuse` to `RESOLVE_FUSES_DIR/<name>.fuse` if missing or content-different (compare by hash). Track `newly_installed` list. Idempotent.
-2. **`_apply_fusion_effects`** — per clip with `fusion_effects`:
+1. **`_install_fuses`** — runs **first** (before `_apply_per_clip`) so referenced `.fuse` files exist on disk before any per-clip Fusion work. Walk `recipe["clips"]`, collect distinct `fuse` names referenced. For each, copy from `FUSES_SOURCE_DIR/<name>/<name>.fuse` to `RESOLVE_FUSES_DIR/<name>.fuse` if missing or content-different (compare by hash). Track `newly_installed` list. Idempotent.
+2. **`_apply_per_clip`** — existing per-clip steps, including **`_apply_fusion_effects`** for clips with `fusion_effects`:
    - Detect an existing buttercut-managed comp (node name prefix `ButterCut_`) and skip re-application if all effects already present.
    - Otherwise: `item.AddFusionComp()` to get a `Comp`. For each effect in order, `Comp.AddTool(fuse_name)`; if `AddTool` returns None, append `(clip_idx, fuse_name)` to `needs_restart` and break out of this clip's loop.
    - Wire MediaIn → effect[0] → effect[1] → … → MediaOut by connecting `Input` to the previous tool's `Output`.
