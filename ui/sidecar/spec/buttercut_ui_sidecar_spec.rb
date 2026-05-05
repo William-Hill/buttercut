@@ -368,4 +368,104 @@ RSpec.describe ButtercutUiSidecar do
       end
     end
   end
+
+  describe "export_roughcut_artifacts" do
+    it "returns exported artifact paths" do
+      Dir.mktmpdir do |root|
+        LibraryFixture.build(root, name: "demo", videos: [])
+        yaml_path = File.join(root, "demo", "roughcuts", "roughcut_ui_1.yaml")
+        FileUtils.mkdir_p(File.dirname(yaml_path))
+        File.write(yaml_path, "clips: []\n")
+
+        fake = instance_double(ButtercutUiSidecar::RoughcutExporter)
+        allow(ButtercutUiSidecar::RoughcutExporter).to receive(:new).and_return(fake)
+        allow(fake).to receive(:export).and_return({
+          yaml_path: yaml_path,
+          xml_path: File.join(root, "demo", "roughcuts", "delivery.xml"),
+          recipe_path: File.join(root, "demo", "roughcuts", "delivery.recipe.json"),
+          apply_path: File.join(root, "demo", "roughcuts", "delivery_apply.py"),
+          format: "resolve"
+        })
+
+        result = call(root, "export_roughcut_artifacts", {
+          library: "demo",
+          yaml_path: yaml_path,
+          format: "resolve",
+          filename: "delivery"
+        })
+
+        expect(result["error"]).to be_nil
+        expect(result.dig("result", "format")).to eq("resolve")
+      end
+    end
+
+    it "rejects yaml_path outside the library directory" do
+      Dir.mktmpdir do |root|
+        LibraryFixture.build(root, name: "demo", videos: [])
+        outside = File.join(root, "outside.yaml")
+        File.write(outside, "clips: []\n")
+
+        result = call(root, "export_roughcut_artifacts", {
+          library: "demo",
+          yaml_path: outside,
+          format: "resolve",
+          filename: "x"
+        })
+
+        expect(result["error"]).not_to be_nil
+        expect(result.dig("error", "message")).to match(/outside library directory/)
+      end
+    end
+  end
+
+  describe "send_to_resolve" do
+    it "returns handoff result from Resolve runner" do
+      Dir.mktmpdir do |root|
+        LibraryFixture.build(root, name: "demo", videos: [])
+        rough = File.join(root, "demo", "roughcuts")
+        FileUtils.mkdir_p(rough)
+        apply_path = File.join(rough, "a_apply.py")
+        recipe_path = File.join(rough, "a.recipe.json")
+        File.write(apply_path, "#")
+        File.write(recipe_path, "{}")
+
+        fake = instance_double(ButtercutUiSidecar::ResolveHandoff)
+        allow(ButtercutUiSidecar::ResolveHandoff).to receive(:new).and_return(fake)
+        allow(fake).to receive(:run).and_return({
+          ok: true,
+          output: "[apply_recipe] applied",
+          project_name: "Demo",
+          timeline_name: "roughcut_ui_1"
+        })
+
+        result = call(root, "send_to_resolve", {
+          library: "demo",
+          apply_path: apply_path,
+          recipe_path: recipe_path
+        })
+
+        expect(result["error"]).to be_nil
+        expect(result.dig("result", "ok")).to be(true)
+      end
+    end
+
+    it "rejects apply_path outside the library directory" do
+      Dir.mktmpdir do |root|
+        LibraryFixture.build(root, name: "demo", videos: [])
+        File.write(File.join(root, "evil_apply.py"), "#")
+        rdir = File.join(root, "demo", "roughcuts")
+        FileUtils.mkdir_p(rdir)
+        File.write(File.join(rdir, "r.recipe.json"), "{}")
+
+        result = call(root, "send_to_resolve", {
+          library: "demo",
+          apply_path: File.join(root, "evil_apply.py"),
+          recipe_path: File.join(rdir, "r.recipe.json")
+        })
+
+        expect(result["error"]).not_to be_nil
+        expect(result.dig("error", "message")).to match(/outside library directory/)
+      end
+    end
+  end
 end

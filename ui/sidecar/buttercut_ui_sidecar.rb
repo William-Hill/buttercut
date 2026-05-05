@@ -26,6 +26,8 @@ require_relative "lib/buttercut_ui_sidecar/stages/summarize"
 require_relative "lib/buttercut_ui_sidecar/brief_store"
 require_relative "lib/buttercut_ui_sidecar/presence"
 require_relative "lib/buttercut_ui_sidecar/roughcut_controller"
+require_relative "lib/buttercut_ui_sidecar/roughcut_exporter"
+require_relative "lib/buttercut_ui_sidecar/resolve_handoff"
 
 module ButtercutUiSidecar
   def self.run(libraries_root:, io_in: $stdin, io_out: $stdout)
@@ -85,6 +87,8 @@ module ButtercutUiSidecar
         respond_error(id: id, code: -32010, message: "missing_api_key")
       when /\Ainvalid_api_key/
         respond_error(id: id, code: -32012, message: e.message)
+      when /\A(resolve_[a-z_]+|missing_[a-z_]+):/
+        respond_error(id: id, code: -32000, message: e.message)
       else
         respond_error(id: id, code: -32000, message: "#{e.class}: #{e.message}")
       end
@@ -168,8 +172,54 @@ module ButtercutUiSidecar
         brief_catalog_fork(params)
       when "start_roughcut"
         roughcut_start(params)
+      when "export_roughcut_artifacts"
+        export_roughcut_artifacts(params)
+      when "send_to_resolve"
+        send_to_resolve(params)
       else raise UnknownMethod, "unknown method: #{method}"
       end
+    end
+
+    def export_roughcut_artifacts(params)
+      library = params.fetch("library")
+      library_dir(library)
+      yaml_safe = assert_artifact_path_in_library!(library, params.fetch("yaml_path"), "yaml_path")
+      exporter = ButtercutUiSidecar::RoughcutExporter.new(repo_root: @repo_root.to_s)
+      exporter.export(
+        yaml_path: yaml_safe,
+        format: params.fetch("format"),
+        filename: params["filename"]
+      )
+    end
+
+    def send_to_resolve(params)
+      library = params.fetch("library")
+      library_dir(library)
+      apply_safe = assert_artifact_path_in_library!(library, params.fetch("apply_path"), "apply_path")
+      recipe_safe = assert_artifact_path_in_library!(library, params.fetch("recipe_path"), "recipe_path")
+      handoff = ButtercutUiSidecar::ResolveHandoff.new
+      handoff.run(
+        apply_path: apply_safe,
+        recipe_path: recipe_safe
+      )
+    end
+
+    # Reject paths outside the resolved library directory (path traversal / arbitrary script execution).
+    def assert_artifact_path_in_library!(library, path, label)
+      lib_real = File.realpath(library_dir(library).to_s)
+      prefix = lib_real + File::SEPARATOR
+      expanded = Pathname.new(path.to_s).expand_path.to_s
+      resolved =
+        begin
+          File.realpath(expanded)
+        rescue Errno::ENOENT
+          expanded
+        end
+      unless resolved == lib_real || resolved.start_with?(prefix)
+        raise ArgumentError, "#{label} outside library directory"
+      end
+
+      resolved
     end
 
     def roughcut_prerequisites(name)

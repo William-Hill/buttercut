@@ -787,6 +787,19 @@
   margin-top: 20px;
 }
 
+.brief-composer__export-sheet {
+  margin-top: 20px;
+  padding: 14px;
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.brief-composer__export-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
 .brief-composer__paths-label {
   font-family: var(--mono);
   font-size: 10px;
@@ -803,16 +816,35 @@
   gap: 6px;
 }
 
+.brief-composer__paths li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.brief-composer__path-text {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text);
+  word-break: break-all;
+}
+
+.brief-composer__path-actions {
+  display: inline-flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
 .brief-composer__linkish {
   font-family: var(--mono);
   font-size: 10px;
   color: var(--accent);
-  text-align: left;
+  text-align: right;
   background: none;
   border: none;
   cursor: pointer;
   padding: 0;
-  word-break: break-all;
   text-decoration: underline;
   text-underline-offset: 2px;
 }
