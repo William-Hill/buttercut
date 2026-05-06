@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **B-roll manifest schema (Hyperframes foundation).** New `*.broll.yaml` artifact format and validator (`lib/buttercut/broll_manifest.rb`) that the b-roll director will emit and the Hyperframes render skill / roughcut integration will consume. Each entry pairs a footage timestamp with a template, placement (`overlay` / `cutaway` / `pip`), and template-specific content payload. Canonical example in `templates/broll_template.yaml`. First slice of the Hyperframes integration epic (#63, schema task #64).
 - `fuses/` with five bundled Fusion fuses: `ChromaPulse`, `VHSGlitch`, `FilmGrain`, `LightLeak`, and `ZoomPunch`. (#23)
 - `ButterCut::FuseLibrary` for loading and validating fuse manifests. (#23)
 - Recipe `fusion_effects` per-clip directive (schema version 2; v1 remains supported). (#23)
