@@ -1,0 +1,70 @@
+<!doctype html>
+<html
+  lang="en"
+  data-composition-variables='[
+    {"id":"command","type":"string","label":"Command","default":"git status"},
+    {"id":"caption","type":"string","label":"Caption","default":""},
+    {"id":"duration","type":"number","label":"Duration","default":5}
+  ]'
+>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>code-callout</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+    <style>
+      :root {
+        --bg: #0d0d0d;
+        --fg: #f5f5f4;
+        --accent: #ff6b35;
+        --muted: #a3a3a3;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--bg); color: var(--fg); }
+      body { font-family: 'Inter', system-ui, sans-serif; }
+      .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="code-callout"
+      data-start="0"
+      data-duration="5"
+      data-width="1920"
+      data-height="1080"
+    >
+      <div class="w-full h-full flex items-center justify-center">
+        <div id="card" class="clip opacity-0 max-w-[80%]" data-start="0" data-duration="5">
+          <div class="rounded-2xl border border-white/10 shadow-2xl bg-black/70 backdrop-blur p-10">
+            <div class="text-sm uppercase tracking-widest mono" style="color: var(--accent);">command</div>
+            <div id="cmd" class="mono text-5xl mt-3" style="color: var(--fg);">git status</div>
+            <div id="cap" class="text-2xl mt-6" style="color: var(--muted);"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+      const vars = (window.__hyperframes && window.__hyperframes.getVariables && window.__hyperframes.getVariables()) || {};
+      const duration = Number(vars.duration) || 5;
+
+      // Drive the composition root's duration from the variable so the
+      // rendered MP4 length matches `vars.duration`.
+      const root = document.getElementById('root');
+      root.setAttribute('data-duration', String(duration));
+      const card = document.getElementById('card');
+      card.setAttribute('data-duration', String(duration));
+
+      document.getElementById('cmd').textContent = vars.command || 'git status';
+      document.getElementById('cap').textContent = vars.caption || '';
+
+      const tl = gsap.timeline({ paused: true });
+      tl.fromTo('#card', { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.5, ease: 'power2.out' }, 0);
+      tl.to('#card', { opacity: 1, duration: Math.max(0, duration - 1.0) }, 0.5);
+      tl.to('#card', { opacity: 0, y: -16, duration: 0.5, ease: 'power2.in' }, Math.max(0.5, duration - 0.5));
+      window.__timelines = window.__timelines || {};
+      window.__timelines["code-callout"] = tl;
+    </script>
+  </body>
+</html>
