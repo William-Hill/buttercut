@@ -7,6 +7,7 @@ class ButterCut
     PINNED_FPS = '30'
     PINNED_QUALITY = 'standard'
     PINNED_WORKERS = '1'
+    SAFE_SLUG = /\A[a-z0-9][a-z0-9_-]*\z/i
 
     def self.render(entry:, theme:, output_dir:, hyperframes_dir:)
       new(entry: entry, theme: theme, output_dir: output_dir, hyperframes_dir: hyperframes_dir).render
@@ -22,15 +23,23 @@ class ButterCut
       @theme = theme
       @output_dir = output_dir
       @hyperframes_dir = hyperframes_dir
+
+      validate_entry!
     end
 
     def render
       validate_composition_exists!
       FileUtils.mkdir_p(@output_dir)
       out = output_path
-      File.delete(out) if File.exist?(out)
-      run_render!(build_command(out))
-      raise "render produced no file at #{out}" unless File.exist?(out)
+      tmp = "#{out}.tmp-#{Process.pid}"
+      File.delete(tmp) if File.exist?(tmp)
+      begin
+        run_render!(build_command(tmp))
+        raise "render produced no file at #{tmp}" unless File.exist?(tmp)
+        FileUtils.mv(tmp, out, force: true)
+      ensure
+        File.delete(tmp) if File.exist?(tmp)
+      end
       out
     end
 
@@ -47,6 +56,22 @@ class ButterCut
     def validate_composition_exists!
       unless File.exist?(File.join(composition_dir, 'index.html'))
         raise ArgumentError, "composition not found for template #{@entry['template'].inspect} at #{composition_dir}"
+      end
+    end
+
+    def validate_entry!
+      id = @entry['id']
+      template = @entry['template']
+      unless id.is_a?(String) && id.match?(SAFE_SLUG)
+        raise ArgumentError, "entry id must match #{SAFE_SLUG.source}, got #{id.inspect}"
+      end
+      unless template.is_a?(String) && template.match?(SAFE_SLUG)
+        raise ArgumentError, "entry template must match #{SAFE_SLUG.source}, got #{template.inspect}"
+      end
+      start_t = @entry['start']
+      end_t = @entry['end']
+      unless start_t.is_a?(Numeric) && end_t.is_a?(Numeric) && end_t > start_t
+        raise ArgumentError, "entry start/end must be numeric with end > start, got start=#{start_t.inspect} end=#{end_t.inspect}"
       end
     end
 

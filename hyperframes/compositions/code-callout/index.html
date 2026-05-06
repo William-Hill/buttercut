@@ -46,15 +46,12 @@
       </div>
     </div>
     <script>
+      // Hyperframes resolves data-duration at composition compile time, so the
+      // encoded length is fixed by the data-duration attribute (5s) regardless
+      // of vars.duration. Variable durations require pre-render templating;
+      // tracked as a follow-up.
       const vars = (window.__hyperframes && window.__hyperframes.getVariables && window.__hyperframes.getVariables()) || {};
-      const duration = Number(vars.duration) || 5;
-
-      // Drive the composition root's duration from the variable so the
-      // rendered MP4 length matches `vars.duration`.
-      const root = document.getElementById('root');
-      root.setAttribute('data-duration', String(duration));
-      const card = document.getElementById('card');
-      card.setAttribute('data-duration', String(duration));
+      const duration = 5;
 
       document.getElementById('cmd').textContent = vars.command || 'git status';
       document.getElementById('cap').textContent = vars.caption || '';

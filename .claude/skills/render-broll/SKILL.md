@@ -24,7 +24,7 @@ The parent reads the manifest (`libraries/<lib>/roughcuts/<id>.broll.yaml`) and 
 
 ## After the agent returns
 
-Update the manifest entry's `rendered` field to the returned path (filename only, e.g. `broll/br-0001.mp4`) and save the manifest via `ButterCut::BrollManifest`.
+Update the manifest entry's `rendered` field to the returned relative path (e.g. `broll/br-0001.mp4`) and save the manifest via `ButterCut::BrollManifest`.
 
 ## Dependencies
 

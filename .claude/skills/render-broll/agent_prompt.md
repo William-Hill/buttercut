@@ -13,9 +13,12 @@ Do NOT read `library.yaml`, `settings.yaml`, or the manifest file. If a required
 
 ## 1. Render
 
-Write `entry`, `theme`, `output_dir`, and `hyperframes_dir` into a temp JSON file (call it `/tmp/render-broll-<id>.json`) and run:
+Write `entry`, `theme`, `output_dir`, and `hyperframes_dir` into a unique temp JSON file under repo-root `tmp/` (e.g. `mktemp tmp/render-broll-<id>.XXXXXX.json`), run the command against it, then delete the temp file:
 
 ```bash
+TMP_JSON=$(mktemp tmp/render-broll-<id>.XXXXXX.json)
+trap 'rm -f "$TMP_JSON"' EXIT
+# write the JSON body to "$TMP_JSON" here
 ruby -Ilib -r buttercut -r json -e '
   args = JSON.parse(File.read(ARGV[0]))
   puts ButterCut::BrollRenderer.render(
@@ -24,14 +27,14 @@ ruby -Ilib -r buttercut -r json -e '
     output_dir: args["output_dir"],
     hyperframes_dir: args["hyperframes_dir"]
   )
-' /tmp/render-broll-<id>.json
+' "$TMP_JSON"
 ```
 
 Capture the printed path.
 
 ## 2. Return success response
 
-```
+```text
 ✓ <id> rendered successfully
   Output: <path printed by the ruby command>
   Template: <entry.template>

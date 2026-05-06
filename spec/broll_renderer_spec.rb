@@ -24,16 +24,50 @@ RSpec.describe ButterCut::BrollRenderer do
       end
     end
 
+    it 'rejects entry ids and templates with path separators' do
+      Dir.mktmpdir do |out|
+        bad_id = entry.merge('id' => '../escape')
+        expect {
+          described_class.render(entry: bad_id, theme: theme, output_dir: out, hyperframes_dir: hyperframes_dir)
+        }.to raise_error(ArgumentError, /entry id must match/)
+
+        bad_template = entry.merge('template' => '../../other')
+        expect {
+          described_class.render(entry: bad_template, theme: theme, output_dir: out, hyperframes_dir: hyperframes_dir)
+        }.to raise_error(ArgumentError, /entry template must match/)
+      end
+    end
+
+    it 'rejects entries with non-numeric or non-positive durations' do
+      Dir.mktmpdir do |out|
+        bad = entry.merge('start' => 5.0, 'end' => 5.0)
+        expect {
+          described_class.render(entry: bad, theme: theme, output_dir: out, hyperframes_dir: hyperframes_dir)
+        }.to raise_error(ArgumentError, /start\/end/)
+      end
+    end
+
+    def stub_render_to_capture(renderer, captured_ref)
+      allow(renderer).to receive(:run_render!) do |cmd|
+        captured_ref[:cmd] = cmd
+        FileUtils.touch(cmd[cmd.index('-o') + 1])
+      end
+    end
+
     it 'writes to <output_dir>/<id>.mp4 and returns that path' do
       Dir.mktmpdir do |out|
         renderer = described_class.new(entry: entry, theme: theme, output_dir: out, hyperframes_dir: hyperframes_dir)
         expected = File.join(out, 'br-0001.mp4')
-        captured = nil
-        allow(renderer).to receive(:run_render!) { |cmd| captured = cmd; FileUtils.touch(expected) }
+        captured_ref = {}
+        stub_render_to_capture(renderer, captured_ref)
         result = renderer.render
+        captured = captured_ref.fetch(:cmd)
         expect(result).to eq(expected)
+        expect(File.exist?(expected)).to be true
         expect(captured.take(4).join(' ')).to match(/hyperframes/)
-        expect(captured).to include('render', '-o', expected)
+        expect(captured).to include('render')
+        out_path = captured[captured.index('-o') + 1]
+        expect(out_path).to start_with(expected)
         json_idx = captured.index('--variables')
         vars = JSON.parse(captured[json_idx + 1])
         expect(vars).to include('command' => 'git rebase -i HEAD~3', 'caption' => 'Interactive rebase, last 3 commits')
@@ -45,7 +79,8 @@ RSpec.describe ButterCut::BrollRenderer do
       Dir.mktmpdir do |out|
         renderer = described_class.new(entry: entry, theme: theme, output_dir: out, hyperframes_dir: hyperframes_dir)
         expected = File.join(out, 'br-0001.mp4')
-        allow(renderer).to receive(:run_render!) { FileUtils.touch(expected) }
+        captured_ref = {}
+        stub_render_to_capture(renderer, captured_ref)
         first = renderer.render
         File.write(expected, "stale")
         second = renderer.render
@@ -54,12 +89,24 @@ RSpec.describe ButterCut::BrollRenderer do
       end
     end
 
+    it 'preserves the prior MP4 if render fails (render-then-swap)' do
+      Dir.mktmpdir do |out|
+        renderer = described_class.new(entry: entry, theme: theme, output_dir: out, hyperframes_dir: hyperframes_dir)
+        expected = File.join(out, 'br-0001.mp4')
+        File.write(expected, "good")
+        allow(renderer).to receive(:run_render!).and_raise("simulated render failure")
+        expect { renderer.render }.to raise_error(/simulated render failure/)
+        expect(File.read(expected)).to eq("good")
+      end
+    end
+
     it 'pins fps, quality, and workers for deterministic output' do
       Dir.mktmpdir do |out|
         renderer = described_class.new(entry: entry, theme: theme, output_dir: out, hyperframes_dir: hyperframes_dir)
-        captured = nil
-        allow(renderer).to receive(:run_render!) { |cmd| captured = cmd; FileUtils.touch(File.join(out, 'br-0001.mp4')) }
+        captured_ref = {}
+        stub_render_to_capture(renderer, captured_ref)
         renderer.render
+        captured = captured_ref.fetch(:cmd)
         expect(captured).to include('--fps', '30')
         expect(captured).to include('--quality', 'standard')
         expect(captured).to include('--workers', '1')
