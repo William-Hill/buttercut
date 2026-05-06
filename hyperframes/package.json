@@ -1,0 +1,9 @@
+{
+  "name": "buttercut-hyperframes",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Hyperframes compositions used by ButterCut's render-broll skill.",
+  "dependencies": {
+    "hyperframes": "0.5.3"
+  }
+}

@@ -25,3 +25,7 @@ IMPROVEMENTS.md
 
 # Superpowers brainstorm visual companion sessions
 .superpowers/
+
+# Hyperframes
+hyperframes/node_modules/
+hyperframes/renders/
