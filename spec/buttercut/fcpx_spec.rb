@@ -492,6 +492,12 @@ RSpec.describe ButterCut::FCPX do
       %w[event-uid project-uid]
     end
 
+    before do
+      unless media_paths.all? { |p| File.file?(p) && !File.empty?(p) }
+        skip 'Golden full-project tests need gitignored media/*.mov fixtures (run locally with media/ populated)'
+      end
+    end
+
     it 'matches the full-clip fixture output' do
       generator = ButterCut::FCPX.new(media_paths.map { |path| { path: path } })
       stub_uuid_sequence(generator, uuid_sequence)

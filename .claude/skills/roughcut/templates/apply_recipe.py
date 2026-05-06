@@ -15,13 +15,18 @@ Scope (locked by Sprint 1, Phase 3 audit on Resolve 20.2.3):
 """
 
 from __future__ import annotations
+from collections import Counter
 import json
+import hashlib
 import os
+import shutil
 import sys
 import traceback
 
 
 RECIPE_PATH = {{RECIPE_PATH}}
+FUSES_SOURCE_DIR = {{FUSES_SOURCE_DIR}}
+RESOLVE_FUSES_DIR = {{RESOLVE_FUSES_DIR}}
 
 
 def get_resolve():
@@ -47,17 +52,63 @@ class Applier:
             "constant_speed_ramps": [0, 0],
             "render_preset": [0, 0],
             "powergrade": [0, 0],
+            "fusion_effects": [0, 0],
         }
         self.manual = {"transitions": 0, "multi_point_ramps": 0, "constant_speed_ramps": 0, "title_card": 0}
         self.warnings = []
+        self.newly_installed = []
+        self.needs_restart = []
 
     def apply(self):
+        self._install_fuses()
         self._apply_per_clip()
         self._apply_render_preset()
         self._apply_powergrade()
         self._log_manual_transitions()
         self._log_manual_title_card()
         self._report()
+
+    def _fuses_referenced(self):
+        names = set()
+        for clip in self.recipe.get("clips", []):
+            for effect in clip.get("fusion_effects", []) or []:
+                names.add(effect["fuse"])
+        return sorted(names)
+
+    def _install_fuses(self):
+        names = self._fuses_referenced()
+        if not names:
+            return
+
+        os.makedirs(RESOLVE_FUSES_DIR, exist_ok=True)
+        for name in names:
+            src = os.path.join(FUSES_SOURCE_DIR, name, f"{name}.fuse")
+            if not os.path.isfile(src):
+                self.warnings.append(f"fuse {name}: source not found at {src}")
+                continue
+            dst = os.path.join(RESOLVE_FUSES_DIR, f"{name}.fuse")
+            if self._files_match(src, dst):
+                continue
+            try:
+                shutil.copy2(src, dst)
+                self.newly_installed.append(name)
+                print(f"[apply_recipe] installed fuse: {name} -> {dst}")
+            except Exception as e:
+                self.warnings.append(f"fuse {name}: copy failed: {type(e).__name__}: {e}")
+
+    @staticmethod
+    def _files_match(src, dst):
+        if not os.path.isfile(dst):
+            return False
+        return Applier._sha256(src) == Applier._sha256(dst)
+
+    @staticmethod
+    def _sha256(path):
+        hasher = hashlib.sha256()
+        with open(path, "rb") as handle:
+            for chunk in iter(lambda: handle.read(65536), b""):
+                hasher.update(chunk)
+        return hasher.hexdigest()
 
     def _get_frame_rate(self):
         try:
@@ -85,6 +136,7 @@ class Applier:
             self._apply_color_tag(item, clip, idx)
             self._apply_markers(item, clip, idx)
             self._apply_speed_ramps(item, clip, idx)
+            self._apply_fusion_effects(item, clip, idx)
 
     def _apply_color_tag(self, item, clip, idx):
         if "color_tag" not in clip:
@@ -183,6 +235,170 @@ class Applier:
             f"[apply_recipe] manual: constant ramp on clip {idx} → {speed}% — "
             f"set in Resolve (Inspector > Speed) since scripted set returned False"
         )
+
+    def _apply_fusion_effects(self, item, clip, idx):
+        effects = clip.get("fusion_effects") or []
+        if not effects:
+            return
+
+        self.counts["fusion_effects"][1] += len(effects)
+        comp = self._resolve_fusion_comp(item, idx)
+        if not comp:
+            return
+
+        if self._fusion_effect_tools_present(comp, effects):
+            self.counts["fusion_effects"][0] += len(effects)
+            return
+
+        media_in = self._find_tool(comp, "MediaIn1") or self._find_first_by_id(comp, "MediaIn")
+        media_out = self._find_tool(comp, "MediaOut1") or self._find_first_by_id(comp, "MediaOut")
+        if not media_in or not media_out:
+            self.warnings.append(f"clip {idx}: comp missing MediaIn/MediaOut")
+            return
+
+        prev_output = media_in.Output if hasattr(media_in, "Output") else media_in.FindMainOutput(1)
+        for effect in effects:
+            fuse_name = effect["fuse"]
+            try:
+                tool = comp.AddTool(fuse_name)
+            except Exception as e:
+                self.warnings.append(f"clip {idx}: AddTool({fuse_name!r}) raised {type(e).__name__}: {e}")
+                tool = None
+            if not tool:
+                self.needs_restart.append((idx, fuse_name))
+                return
+
+            try:
+                input_link = tool.FindMainInput(1) if hasattr(tool, "FindMainInput") else tool.Input
+                input_link.ConnectTo(prev_output)
+            except Exception as e:
+                self.warnings.append(f"clip {idx}: connect {fuse_name} input raised {type(e).__name__}: {e}")
+                return
+
+            for pname, pval in (effect.get("params") or {}).items():
+                try:
+                    result = tool.SetInput(pname, pval)
+                except Exception as e:
+                    self.warnings.append(
+                        f"clip {idx}: SetInput({pname!r}, {pval!r}) on {fuse_name} raised {type(e).__name__}: {e}"
+                    )
+                else:
+                    if result is False:
+                        self.warnings.append(
+                            f"clip {idx}: SetInput({pname!r}, {pval!r}) on {fuse_name} returned False"
+                        )
+
+            prev_output = tool.Output if hasattr(tool, "Output") else tool.FindMainOutput(1)
+            self.counts["fusion_effects"][0] += 1
+
+        try:
+            media_out_input = media_out.FindMainInput(1) if hasattr(media_out, "FindMainInput") else media_out.Input
+            media_out_input.ConnectTo(prev_output)
+        except Exception as e:
+            self.warnings.append(f"clip {idx}: connect MediaOut raised {type(e).__name__}: {e}")
+
+    def _list_fusion_comps(self, item):
+        out = []
+        if not hasattr(item, "GetFusionCompCount") or not hasattr(item, "GetFusionComp"):
+            return out
+        try:
+            raw = item.GetFusionCompCount()
+            count = int(raw) if raw is not None else 0
+        except (TypeError, ValueError):
+            return out
+        # Resolve's Fusion comp index is 1-based (1 .. count inclusive).
+        for i in range(1, max(count, 0) + 1):
+            try:
+                c = item.GetFusionComp(i)
+            except (AttributeError, OSError, TypeError, ValueError):
+                continue
+            if c:
+                out.append(c)
+        return out
+
+    def _comp_display_name(self, comp):
+        for attr in ("GetName", "Name"):
+            if hasattr(comp, attr):
+                try:
+                    v = getattr(comp, attr)
+                    name = v() if callable(v) else v
+                    if name:
+                        return str(name)
+                except Exception:
+                    pass
+        try:
+            if hasattr(comp, "GetAttrs"):
+                attrs = comp.GetAttrs() or {}
+                if isinstance(attrs, dict):
+                    for key in ("TOOLS_Name", "COMP_NAME", "Name"):
+                        val = attrs.get(key)
+                        if val:
+                            return str(val)
+        except Exception:
+            pass
+        return ""
+
+    def _comp_is_buttercut(self, comp):
+        return self._comp_display_name(comp).startswith("ButterCut_")
+
+    def _try_tag_buttercut_comp(self, comp, idx):
+        try:
+            if hasattr(comp, "SetAttrs"):
+                comp.SetAttrs({"TOOLS_Name": f"ButterCut_clip{idx}"})
+        except Exception:
+            pass
+
+    def _resolve_fusion_comp(self, item, idx):
+        comps = self._list_fusion_comps(item)
+        for c in comps:
+            if self._comp_is_buttercut(c):
+                return c
+        if not hasattr(item, "AddFusionComp"):
+            self.warnings.append(f"clip {idx}: timeline item has no AddFusionComp")
+            return None
+        try:
+            comp = item.AddFusionComp()
+        except Exception as e:
+            self.warnings.append(f"clip {idx}: AddFusionComp raised {type(e).__name__}: {e}")
+            return None
+        if not comp:
+            self.warnings.append(f"clip {idx}: AddFusionComp returned None")
+            return None
+        self._try_tag_buttercut_comp(comp, idx)
+        return comp
+
+    def _count_tools_with_id(self, comp, tool_id):
+        try:
+            tools = comp.GetToolList(False, tool_id) or {}
+        except Exception:
+            return 0
+        if isinstance(tools, dict):
+            return len(tools)
+        if isinstance(tools, (list, tuple)):
+            return len(tools)
+        return 1 if tools else 0
+
+    def _fusion_effect_tools_present(self, comp, effects):
+        expected = Counter(e["fuse"] for e in effects)
+        for fuse, need in expected.items():
+            if self._count_tools_with_id(comp, fuse) != need:
+                return False
+        return True
+
+    def _find_tool(self, comp, name):
+        try:
+            return comp.FindTool(name)
+        except Exception:
+            return None
+
+    def _find_first_by_id(self, comp, tool_id):
+        try:
+            tools = comp.GetToolList(False, tool_id) or {}
+        except Exception:
+            return None
+        if isinstance(tools, dict):
+            return next(iter(tools.values()), None)
+        return tools[0] if tools else None
 
     def _apply_render_preset(self):
         preset = self.recipe.get("render_preset")
@@ -309,6 +525,12 @@ class Applier:
             for cap, count in self.manual.items():
                 if count:
                     print(f"  {cap}: {count}")
+        if self.newly_installed:
+            print(f"[apply_recipe] installed fuses: {', '.join(self.newly_installed)}")
+        if self.needs_restart:
+            print("[apply_recipe] ACTION REQUIRED: restart Resolve once, then re-run this script.")
+            for clip_idx, fuse_name in self.needs_restart:
+                print(f"  clip {clip_idx}: fuse {fuse_name!r} not yet registered")
         if self.warnings:
             print("[apply_recipe] warnings:")
             for w in self.warnings:
@@ -323,9 +545,12 @@ def main():
     with open(RECIPE_PATH, encoding="utf-8") as f:
         recipe = json.load(f)
 
-    expected_version = 1
-    if recipe.get("version") != expected_version:
-        print(f"[apply_recipe] ERROR: recipe version {recipe.get('version')!r} unsupported (expected {expected_version})")
+    supported_versions = {1, 2}
+    if recipe.get("version") not in supported_versions:
+        print(
+            f"[apply_recipe] ERROR: recipe version {recipe.get('version')!r} unsupported "
+            f"(expected one of {sorted(supported_versions)})"
+        )
         sys.exit(1)
 
     resolve = get_resolve()

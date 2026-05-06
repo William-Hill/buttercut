@@ -1,0 +1,36 @@
+FuRegisterClass("VHSGlitch", CT_Tool, {
+  REGS_Name = "VHSGlitch",
+  REGS_Category = "ButterCut",
+  REGS_OpIconString = "VG",
+  REGS_OpDescription = "VHS scanline/glitch controls",
+  REG_NoMotionBlurCtrls = true,
+  REG_NoBlendCtrls = false,
+  REG_OpNoMask = true,
+})
+
+VHSGlitch = Class("VHSGlitch", Operator)
+
+function VHSGlitch:Create()
+  InImage = self:AddInput("Input", "Input", { LINKID_DataType = "Image", LINK_Main = 1 })
+  InIntensity = self:AddInput("Intensity", "Intensity", {
+    LINKID_DataType = "Number", INPID_InputControl = "SliderControl",
+    INP_Default = 0.5, INP_MinScale = 0.0, INP_MaxScale = 1.0,
+  })
+  InTearChance = self:AddInput("TearChance", "TearChance", {
+    LINKID_DataType = "Number", INPID_InputControl = "SliderControl",
+    INP_Default = 0.05, INP_MinScale = 0.0, INP_MaxScale = 1.0,
+  })
+  InScanlineStrength = self:AddInput("ScanlineStrength", "ScanlineStrength", {
+    LINKID_DataType = "Number", INPID_InputControl = "SliderControl",
+    INP_Default = 0.6, INP_MinScale = 0.0, INP_MaxScale = 1.0,
+  })
+  OutImage = self:AddOutput("Output", "Output", { LINKID_DataType = "Image", LINK_Main = 1 })
+end
+
+function VHSGlitch:Process(req)
+  local img = InImage:GetValue(req)
+  if not img then
+    return
+  end
+  OutImage:Set(req, img:CopyOf())
+end

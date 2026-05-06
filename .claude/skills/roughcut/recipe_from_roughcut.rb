@@ -73,6 +73,7 @@ class RecipeFromRoughcut
       entry["speed_ramps"] = stringify(clip["speed_ramps"]) if clip.key?("speed_ramps")
       entry["color_tag"] = clip["color_tag"] if clip.key?("color_tag")
       entry["markers"] = stringify(clip["markers"]) if clip.key?("markers")
+      entry["fusion_effects"] = stringify(clip["fusion_effects"]) if clip.key?("fusion_effects")
       entry
     end
   end

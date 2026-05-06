@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `fuses/` with five bundled Fusion fuses: `ChromaPulse`, `VHSGlitch`, `FilmGrain`, `LightLeak`, and `ZoomPunch`. (#23)
+- `ButterCut::FuseLibrary` for loading and validating fuse manifests. (#23)
+- Recipe `fusion_effects` per-clip directive (schema version 2; v1 remains supported). (#23)
+- Resolve apply script support for installing referenced fuses into Resolve's Fuses directory and wiring them per clip via Fusion tools. (#23)
+- `.claude/scripts/lint_fuses.rb` for local/CI luacheck runs on fuse files.
+- `.claude/scripts/verify_fuses.rb` for manual Resolve smoke verification of all registered fuses.
+- CI workflow at `.github/workflows/lint.yml` to run RSpec and fuse linting.
 - M2: New Project flow + streaming analysis progress UI in the desktop app. Drop a folder of videos, name a project, pick a language, and watch the three-stage pipeline (transcribe → analyze → summarize) run with per-file per-stage progress streamed over JSON-RPC notifications. Removes the last terminal dependency from onboarding.
 - Sidecar gains: `inspect_video_paths`, `create_library`, `has_api_key`, `set_api_key`, `start_analysis`, `cancel_job`. Validates Anthropic keys with a Haiku ping; persists to `libraries/settings.yaml` (gitignored). Extracts analyze + summarize prompt content into shared `ui/sidecar/prompts/` files referenced by both the CLI agent and the new sidecar parent.
 
