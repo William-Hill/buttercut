@@ -144,5 +144,13 @@ RSpec.describe ButterCut::BrollManifest do
       h["roughcut"] = ""
       expect { described_class.from_hash(h) }.not_to raise_error
     end
+
+    it "rejects a missing roughcut key" do
+      expect_invalid(->(h) { h.delete("roughcut") }, /roughcut required/)
+    end
+
+    it "rejects a nil roughcut" do
+      expect_invalid(->(h) { h["roughcut"] = nil }, /roughcut required/)
+    end
   end
 end

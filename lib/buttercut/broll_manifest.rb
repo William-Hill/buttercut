@@ -29,7 +29,7 @@ class ButterCut
     def initialize(version:, library:, roughcut:, entries:)
       @version = version
       @library = library
-      @roughcut = roughcut.nil? ? "" : roughcut
+      @roughcut = roughcut
       @entries = entries
 
       validate!
@@ -55,7 +55,9 @@ class ButterCut
     def validate!
       validate_version!
       validate_string!(@library, "library")
-      raise ArgumentError, "roughcut must be a string" unless @roughcut.is_a?(String)
+      unless @roughcut.is_a?(String)
+        raise ArgumentError, "roughcut required (string, may be empty); got #{@roughcut.inspect}"
+      end
       validate_entries!
     end
 
