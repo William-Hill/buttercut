@@ -16,7 +16,7 @@ Do NOT read `library.yaml`, `settings.yaml`, or the manifest file. If a required
 Write `entry`, `theme`, `output_dir`, and `hyperframes_dir` into a temp JSON file (call it `/tmp/render-broll-<id>.json`) and run:
 
 ```bash
-ruby -r ./lib/buttercut/broll_renderer.rb -r json -e '
+ruby -Ilib -r buttercut -r json -e '
   args = JSON.parse(File.read(ARGV[0]))
   puts ButterCut::BrollRenderer.render(
     entry: args["entry"],

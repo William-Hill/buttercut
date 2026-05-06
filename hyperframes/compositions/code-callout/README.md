@@ -10,6 +10,6 @@ Monospace command + caption, designed to overlay on a terminal/IDE shot.
 | caption  | string  | no       | Short caption shown below the command.       |
 | duration | number  | yes      | Total clip duration in seconds.              |
 
-Theme: hardcoded `tutorial-dark` palette (Inter / JetBrains Mono, #0d0d0d bg, #ff6b35 accent). Will be parameterized by the theme block once issue #27 lands.
+Theme: hardcoded `tutorial-dark` palette (Inter / JetBrains Mono, #0d0d0d bg, #ff6b35 accent). Will be parameterized by the theme block in a later PR.
 
-Aspect: 1920x1080. 9:16 variant follows in a later PR (rest of #29).
+Aspect: 1920x1080. 9:16 variant in a later PR.

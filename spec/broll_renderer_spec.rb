@@ -6,9 +6,9 @@ require 'fileutils'
 require 'buttercut/broll_renderer'
 
 RSpec.describe ButterCut::BrollRenderer do
-  let(:entry) { YAML.load_file('spec/fixtures/broll_renderer/manifest_entry.yaml') }
+  let(:entry) { YAML.load_file(File.expand_path('fixtures/broll_renderer/manifest_entry.yaml', __dir__)) }
   let(:theme) { { "name" => "tutorial-dark" } }
-  let(:hyperframes_dir) { File.expand_path('hyperframes', Dir.pwd) }
+  let(:hyperframes_dir) { File.expand_path('../hyperframes', __dir__) }
 
   describe '.render' do
     it 'requires entry, theme, output_dir, hyperframes_dir' do
@@ -32,7 +32,8 @@ RSpec.describe ButterCut::BrollRenderer do
         allow(renderer).to receive(:run_render!) { |cmd| captured = cmd; FileUtils.touch(expected) }
         result = renderer.render
         expect(result).to eq(expected)
-        expect(captured).to include('hyperframes', 'render', '-o', expected)
+        expect(captured.take(4).join(' ')).to match(/hyperframes/)
+        expect(captured).to include('render', '-o', expected)
         json_idx = captured.index('--variables')
         vars = JSON.parse(captured[json_idx + 1])
         expect(vars).to include('command' => 'git rebase -i HEAD~3', 'caption' => 'Interactive rebase, last 3 commits')

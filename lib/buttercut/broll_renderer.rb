@@ -3,9 +3,6 @@ require 'fileutils'
 require 'shellwords'
 
 class ButterCut
-  # Renders one b-roll manifest entry to MP4 via the Hyperframes CLI.
-  # Sub-agents do not interact with library.yaml — the parent passes
-  # `entry`, `theme`, `output_dir`, and `hyperframes_dir` inline.
   class BrollRenderer
     PINNED_FPS = '30'
     PINNED_QUALITY = 'standard'
@@ -59,8 +56,8 @@ class ButterCut
     end
 
     def build_command(out)
-      [
-        'npx', '--prefix', @hyperframes_dir, '-y', 'hyperframes', 'render', composition_dir,
+      hyperframes_invocation + [
+        'render', composition_dir,
         '-o', out,
         '--fps', PINNED_FPS,
         '--quality', PINNED_QUALITY,
@@ -68,6 +65,12 @@ class ButterCut
         '--quiet',
         '--variables', JSON.generate(variables)
       ]
+    end
+
+    def hyperframes_invocation
+      local_bin = File.join(@hyperframes_dir, 'node_modules', '.bin', 'hyperframes')
+      return [local_bin] if File.executable?(local_bin)
+      ['npx', '--prefix', @hyperframes_dir, '-y', 'hyperframes']
     end
 
     def run_render!(cmd)

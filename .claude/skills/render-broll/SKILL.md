@@ -18,7 +18,7 @@ Launch at most **2 in parallel**. Each Hyperframes render spawns a Chrome proces
 The parent reads the manifest (`libraries/<lib>/roughcuts/<id>.broll.yaml`) and the library's theme block, then for each entry passes inline:
 
 - `entry` — the full manifest entry hash (id, template, content, start, end, …)
-- `theme` — resolved theme tokens hash (for now `{ "name": "tutorial-dark" }` — #27 will lift real tokens out of library.yaml)
+- `theme` — resolved theme tokens hash (currently just `{ "name": "tutorial-dark" }`)
 - `output_dir` — `libraries/<library>/broll/`
 - `hyperframes_dir` — absolute path to `hyperframes/` at the repo root
 
