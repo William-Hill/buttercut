@@ -65,4 +65,25 @@ RSpec.describe ButterCut::BrollRenderer do
       end
     end
   end
+
+  describe 'determinism (integration)', :integration do
+    # MP4 muxer embeds non-deterministic timestamps, so byte-identical SHA fails;
+    # we assert structural ffprobe equality (codec/dims/frames/duration) instead.
+    it 'produces structurally-identical MP4s across two runs with the same inputs', :slow do
+      skip 'set RUN_HYPERFRAMES_INTEGRATION=1 to run' unless ENV['RUN_HYPERFRAMES_INTEGRATION'] == '1'
+      probe = lambda do |path|
+        JSON.parse(`ffprobe -v error -print_format json -show_streams -show_format "#{path}"`)
+      end
+      Dir.mktmpdir do |out_a|
+        Dir.mktmpdir do |out_b|
+          described_class.render(entry: entry, theme: theme, output_dir: out_a, hyperframes_dir: hyperframes_dir)
+          described_class.render(entry: entry, theme: theme, output_dir: out_b, hyperframes_dir: hyperframes_dir)
+          a = probe.call(File.join(out_a, 'br-0001.mp4'))
+          b = probe.call(File.join(out_b, 'br-0001.mp4'))
+          keys = %w[codec_name width height nb_frames duration]
+          expect(a['streams'][0].slice(*keys)).to eq(b['streams'][0].slice(*keys))
+        end
+      end
+    end
+  end
 end
