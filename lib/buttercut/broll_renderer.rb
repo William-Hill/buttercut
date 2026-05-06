@@ -1,12 +1,14 @@
 require 'json'
 require 'fileutils'
 require 'shellwords'
+require 'securerandom'
 
 class ButterCut
   class BrollRenderer
     PINNED_FPS = '30'
     PINNED_QUALITY = 'standard'
     PINNED_WORKERS = '1'
+    PINNED_HYPERFRAMES_VERSION = '0.5.3'
     SAFE_SLUG = /\A[a-z0-9][a-z0-9_-]*\z/i
 
     def self.render(entry:, theme:, output_dir:, hyperframes_dir:)
@@ -15,7 +17,7 @@ class ButterCut
 
     def initialize(entry:, theme:, output_dir:, hyperframes_dir:)
       raise ArgumentError, 'entry hash required' unless entry.is_a?(Hash) && !entry.empty?
-      raise ArgumentError, 'theme hash required' unless theme.is_a?(Hash)
+      raise ArgumentError, 'theme hash required' unless theme.is_a?(Hash) && !theme.empty?
       raise ArgumentError, 'output_dir required' if !output_dir.is_a?(String) || output_dir.empty?
       raise ArgumentError, 'hyperframes_dir required' if !hyperframes_dir.is_a?(String) || hyperframes_dir.empty?
 
@@ -31,7 +33,7 @@ class ButterCut
       validate_composition_exists!
       FileUtils.mkdir_p(@output_dir)
       out = output_path
-      tmp = "#{out}.tmp-#{Process.pid}"
+      tmp = "#{out}.tmp-#{Process.pid}-#{SecureRandom.hex(6)}"
       File.delete(tmp) if File.exist?(tmp)
       begin
         run_render!(build_command(tmp))
@@ -95,7 +97,7 @@ class ButterCut
     def hyperframes_invocation
       local_bin = File.join(@hyperframes_dir, 'node_modules', '.bin', 'hyperframes')
       return [local_bin] if File.executable?(local_bin)
-      ['npx', '--prefix', @hyperframes_dir, '-y', 'hyperframes']
+      ['npx', '--prefix', @hyperframes_dir, '-y', "hyperframes@#{PINNED_HYPERFRAMES_VERSION}"]
     end
 
     def run_render!(cmd)
