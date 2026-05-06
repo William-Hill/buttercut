@@ -1,0 +1,11 @@
+id: br-0001
+source_video: tutorial_01.mov
+start: 42.10
+end: 47.10
+template: code-callout
+placement: overlay
+score: 0.84
+content:
+  command: "git rebase -i HEAD~3"
+  caption: "Interactive rebase, last 3 commits"
+rendered: null
