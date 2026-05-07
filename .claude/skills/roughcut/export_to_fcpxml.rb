@@ -91,10 +91,9 @@ class RoughcutExporter
     @manifest = File.exist?(broll_yaml_path) ? ButterCut::BrollManifest.load(broll_yaml_path) : nil
   end
 
-  def load_overlays
-    return [] if manifest.nil?
-
-    manifest.entries.filter_map do |entry|
+  def valid_entries
+    return @valid_entries if defined?(@valid_entries)
+    @valid_entries = (manifest&.entries || []).filter_map do |entry|
       if entry['rendered'].nil? || entry['rendered'].to_s.empty?
         warn "[export] skipping #{entry['id']}: rendered is empty"
         next nil
@@ -104,8 +103,14 @@ class RoughcutExporter
         warn "[export] skipping #{entry['id']}: rendered file not found at #{rendered_path}"
         next nil
       end
+      entry.merge('_resolved_path' => rendered_path)
+    end
+  end
+
+  def load_overlays
+    valid_entries.map do |entry|
       {
-        source: rendered_path,
+        source: entry['_resolved_path'],
         source_id: entry['id'],
         start: entry['start'],
         duration: entry['end'] - entry['start'],
@@ -124,8 +129,7 @@ class RoughcutExporter
 
   def broll_entries_for_recipe
     return nil if manifest.nil?
-    manifest.entries.filter_map do |entry|
-      next nil if entry['rendered'].nil? || entry['rendered'].to_s.empty?
+    valid_entries.map do |entry|
       {
         'id' => entry['id'],
         'start' => entry['start'],
