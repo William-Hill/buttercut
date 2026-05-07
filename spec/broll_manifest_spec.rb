@@ -74,7 +74,7 @@ RSpec.describe ButterCut::BrollManifest do
     end
 
     it "rejects an unknown version" do
-      expect_invalid(->(h) { h["version"] = 2 }, /version must be 1/)
+      expect_invalid(->(h) { h["version"] = 99 }, /version/)
     end
 
     it "requires library" do
@@ -151,6 +151,91 @@ RSpec.describe ButterCut::BrollManifest do
 
     it "rejects a nil roughcut" do
       expect_invalid(->(h) { h["roughcut"] = nil }, /roughcut required/)
+    end
+  end
+
+  describe "schema v2 pip fields" do
+    let(:pip_entry) do
+      {
+        "id" => "br-9001",
+        "source_video" => "tutorial_01.mov",
+        "start" => 10.0,
+        "end" => 14.0,
+        "template" => "code-callout",
+        "placement" => "pip",
+        "pip_corner" => "top_right",
+        "pip_scale" => 0.33,
+        "content" => { "command" => "ls" },
+        "rendered" => nil
+      }
+    end
+
+    let(:v2_hash) do
+      {
+        "version" => 2,
+        "library" => "tutorial-series",
+        "roughcut" => "tutorial_ep1",
+        "entries" => [pip_entry]
+      }
+    end
+
+    it "accepts version 2" do
+      expect { described_class.from_hash(v2_hash) }.not_to raise_error
+    end
+
+    it "accepts pip entry with valid pip_corner and pip_scale" do
+      expect { described_class.from_hash(v2_hash) }.not_to raise_error
+    end
+
+    it "defaults pip_corner and pip_scale to nil when omitted on a pip entry" do
+      bare = pip_entry.dup
+      bare.delete("pip_corner")
+      bare.delete("pip_scale")
+      expect { described_class.from_hash(v2_hash.merge("entries" => [bare])) }.not_to raise_error
+    end
+
+    it "rejects pip_corner outside the enum" do
+      bad = pip_entry.merge("pip_corner" => "middle")
+      expect {
+        described_class.from_hash(v2_hash.merge("entries" => [bad]))
+      }.to raise_error(ArgumentError, /pip_corner/)
+    end
+
+    it "rejects pip_scale outside 0.05..0.95" do
+      bad = pip_entry.merge("pip_scale" => 1.2)
+      expect {
+        described_class.from_hash(v2_hash.merge("entries" => [bad]))
+      }.to raise_error(ArgumentError, /pip_scale/)
+
+      tiny = pip_entry.merge("pip_scale" => 0.01)
+      expect {
+        described_class.from_hash(v2_hash.merge("entries" => [tiny]))
+      }.to raise_error(ArgumentError, /pip_scale/)
+    end
+
+    it "rejects pip_corner on a non-pip entry" do
+      overlay_with_pip = pip_entry.merge("placement" => "overlay")
+      expect {
+        described_class.from_hash(v2_hash.merge("entries" => [overlay_with_pip]))
+      }.to raise_error(ArgumentError, /pip_corner.*only valid.*pip/)
+    end
+
+    it "rejects pip_scale on a non-pip entry" do
+      overlay_with_scale = pip_entry.merge("placement" => "cutaway").tap { |h| h.delete("pip_corner") }
+      expect {
+        described_class.from_hash(v2_hash.merge("entries" => [overlay_with_scale]))
+      }.to raise_error(ArgumentError, /pip_scale.*only valid.*pip/)
+    end
+
+    it "accepts version 1 with a deprecation warning" do
+      v1 = v2_hash.merge("version" => 1)
+      expect { described_class.from_hash(v1) }.to output(/version 1.*deprecated/i).to_stderr
+    end
+
+    it "rejects unknown versions" do
+      expect {
+        described_class.from_hash(v2_hash.merge("version" => 99))
+      }.to raise_error(ArgumentError, /version/)
     end
   end
 end

@@ -76,7 +76,7 @@ RSpec.describe ButterCut::Recipe do
   describe 'version validation' do
     it 'rejects an unknown version' do
       expect {
-        described_class.from_hash(valid_hash.merge("version" => 3))
+        described_class.from_hash(valid_hash.merge("version" => 99))
       }.to raise_error(ArgumentError, /version/)
     end
 
@@ -396,6 +396,53 @@ RSpec.describe ButterCut::Recipe do
       r = described_class.new(version: 1, library: 'L', timeline: 'T',
                               clips: [{ "index" => 1, "source_file" => "a.mov" }])
       expect(r.to_h['version']).to eq(1)
+    end
+  end
+
+  describe "schema v3 broll array" do
+    let(:base_v3) do
+      {
+        "version" => 3,
+        "library" => "tutorial-series",
+        "timeline" => "tutorial_ep1",
+        "clips" => [{ "index" => 1, "source_file" => "tutorial_01.mov" }]
+      }
+    end
+
+    let(:broll_entry) do
+      {
+        "id" => "br-0001",
+        "start" => 42.10,
+        "end" => 47.80,
+        "placement" => "overlay",
+        "source" => "broll/br-0001.mp4",
+        "source_video" => "tutorial_01.mov"
+      }
+    end
+
+    it "accepts version 3" do
+      expect { described_class.from_hash(base_v3) }.not_to raise_error
+    end
+
+    it "round-trips an optional broll array through to_h" do
+      h = base_v3.merge("broll" => [broll_entry])
+      recipe = described_class.from_hash(h)
+      expect(recipe.to_h["broll"]).to eq([broll_entry])
+    end
+
+    it "omits broll from to_h when absent" do
+      recipe = described_class.from_hash(base_v3)
+      expect(recipe.to_h).not_to have_key("broll")
+    end
+
+    it "rejects malformed broll entries" do
+      bad = base_v3.merge("broll" => [{ "id" => "br-0001" }])
+      expect { described_class.from_hash(bad) }.to raise_error(ArgumentError, /broll/)
+    end
+
+    it "rejects placement outside the enum" do
+      bad = base_v3.merge("broll" => [broll_entry.merge("placement" => "weird")])
+      expect { described_class.from_hash(bad) }.to raise_error(ArgumentError, /placement/)
     end
   end
 end

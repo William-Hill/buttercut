@@ -10,16 +10,17 @@ require 'yaml'
 require 'buttercut'
 
 class RecipeFromRoughcut
-  def self.export(roughcut_path:, recipe_path:, library_name:, timeline_name:)
+  def self.export(roughcut_path:, recipe_path:, library_name:, timeline_name:, broll_entries: nil)
     new(
       roughcut_path: roughcut_path,
       recipe_path: recipe_path,
       library_name: library_name,
-      timeline_name: timeline_name
+      timeline_name: timeline_name,
+      broll_entries: broll_entries
     ).export
   end
 
-  def initialize(roughcut_path:, recipe_path:, library_name:, timeline_name:)
+  def initialize(roughcut_path:, recipe_path:, library_name:, timeline_name:, broll_entries: nil)
     raise ArgumentError, "roughcut_path required" if roughcut_path.nil? || roughcut_path.empty?
     raise ArgumentError, "recipe_path required" if recipe_path.nil? || recipe_path.empty?
     raise ArgumentError, "library_name required" if library_name.nil? || library_name.empty?
@@ -29,6 +30,7 @@ class RecipeFromRoughcut
     @recipe_path = recipe_path
     @library_name = library_name
     @timeline_name = timeline_name
+    @broll_entries = broll_entries
   end
 
   def export
@@ -58,6 +60,7 @@ class RecipeFromRoughcut
     h["powergrade"] = stringify(roughcut["powergrade"]) if roughcut["powergrade"]
     h["transitions"] = stringify(roughcut["transitions"]) if roughcut["transitions"]
     h["title_card"] = stringify(roughcut["title_card"]) if roughcut["title_card"]
+    h["broll"] = @broll_entries if @broll_entries && !@broll_entries.empty?
     h
   end
 

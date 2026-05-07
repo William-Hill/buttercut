@@ -104,4 +104,31 @@ RSpec.describe GenerateApplyScript do
       described_class.new(recipe_path: 'x', output_path: nil, fuses_source_dir: '/tmp/fuses', resolve_fuses_dir: '/tmp/resolve-fuses')
     }.to raise_error(ArgumentError, /output_path/)
   end
+
+  it 'logs the b-roll count when the recipe has a broll array' do
+    Dir.mktmpdir do |dir|
+      recipe = {
+        'version' => 3,
+        'library' => 'test-lib',
+        'timeline' => 'test-timeline',
+        'clips' => [{ 'index' => 1, 'source_file' => 'a.mov' }],
+        'broll' => [{
+          'id' => 'br-0001', 'start' => 1.0, 'end' => 2.0,
+          'placement' => 'overlay', 'source' => 'broll/br-0001.mp4',
+          'source_video' => 'a.mov'
+        }]
+      }
+      recipe_path = File.join(dir, 'test.recipe.json')
+      apply_path = File.join(dir, 'test_apply.py')
+      File.write(recipe_path, JSON.pretty_generate(recipe))
+
+      described_class.generate(recipe_path: recipe_path, output_path: apply_path)
+
+      contents = File.read(apply_path)
+      # Generated Python should reference the b-roll array and its length so
+      # users running the apply script see how many manifest entries exist.
+      expect(contents).to include("recipe.get('broll'")
+      expect(contents).to match(/len\(broll_clips\).*b-roll clip/i)
+    end
+  end
 end

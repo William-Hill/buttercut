@@ -1,0 +1,13 @@
+version: 2
+library: fixture-library
+roughcut: sample_roughcut
+entries:
+  - id: br-0001
+    source_video: MVI_0323_720p.mov
+    start: 1.0
+    end: 2.0
+    template: code-callout
+    placement: overlay
+    content:
+      command: "git status"
+    rendered: __FIXTURE_ABS_PATH__
