@@ -4,12 +4,15 @@ require 'date'
 class ButterCut
   # B-roll manifest emitted by the director and consumed by the render skill
   # and roughcut integration. One entry per generated graphic. See
-  # templates/broll_template.yaml for the canonical schema example and the
-  # Hyperframes epic (#63) for context.
+  # templates/broll_template.yaml for the canonical schema example.
   class BrollManifest
-    SCHEMA_VERSION = 1
+    SCHEMA_VERSION = 2
+    SUPPORTED_VERSIONS = [1, 2].freeze
 
     PLACEMENTS = %w[overlay cutaway pip].freeze
+    PIP_CORNERS = %w[top_right top_left bottom_right bottom_left].freeze
+    PIP_SCALE_MIN = 0.05
+    PIP_SCALE_MAX = 0.95
 
     def self.from_hash(hash)
       raise ArgumentError, "manifest hash required" unless hash.is_a?(Hash)
@@ -33,6 +36,7 @@ class ButterCut
       @entries = entries
 
       validate!
+      warn_if_legacy_version!
     end
 
     attr_reader :version, :library, :roughcut, :entries
@@ -62,7 +66,14 @@ class ButterCut
     end
 
     def validate_version!
-      raise ArgumentError, "version must be #{SCHEMA_VERSION}, got #{@version.inspect}" unless @version == SCHEMA_VERSION
+      unless SUPPORTED_VERSIONS.include?(@version)
+        raise ArgumentError, "version must be one of #{SUPPORTED_VERSIONS.inspect}, got #{@version.inspect}"
+      end
+    end
+
+    def warn_if_legacy_version!
+      return unless @version == 1
+      warn "[BrollManifest] version 1 is deprecated; please upgrade to version #{SCHEMA_VERSION}."
     end
 
     def validate_string!(value, field)
@@ -99,9 +110,12 @@ class ButterCut
         raise ArgumentError, "entry #{id} end (#{entry["end"]}) must be greater than start (#{entry["start"]})"
       end
 
-      unless PLACEMENTS.include?(entry["placement"])
-        raise ArgumentError, "entry #{id} placement #{entry["placement"].inspect} not in #{PLACEMENTS.inspect}"
+      placement = entry["placement"]
+      unless PLACEMENTS.include?(placement)
+        raise ArgumentError, "entry #{id} placement #{placement.inspect} not in #{PLACEMENTS.inspect}"
       end
+
+      validate_pip_fields!(entry, id, placement)
 
       if entry.key?("score") && !entry["score"].nil?
         score = entry["score"]
@@ -120,6 +134,32 @@ class ButterCut
 
       if entry.key?("notes") && !entry["notes"].nil? && !entry["notes"].is_a?(String)
         raise ArgumentError, "entry #{id} notes must be a string"
+      end
+    end
+
+    def validate_pip_fields!(entry, id, placement)
+      has_corner = entry.key?("pip_corner") && !entry["pip_corner"].nil?
+      has_scale  = entry.key?("pip_scale")  && !entry["pip_scale"].nil?
+
+      if placement != "pip"
+        if has_corner
+          raise ArgumentError, "entry #{id} pip_corner only valid when placement is pip"
+        end
+        if has_scale
+          raise ArgumentError, "entry #{id} pip_scale only valid when placement is pip"
+        end
+        return
+      end
+
+      if has_corner && !PIP_CORNERS.include?(entry["pip_corner"])
+        raise ArgumentError, "entry #{id} pip_corner #{entry["pip_corner"].inspect} not in #{PIP_CORNERS.inspect}"
+      end
+
+      if has_scale
+        scale = entry["pip_scale"]
+        unless scale.is_a?(Numeric) && scale >= PIP_SCALE_MIN && scale <= PIP_SCALE_MAX
+          raise ArgumentError, "entry #{id} pip_scale must be in #{PIP_SCALE_MIN}..#{PIP_SCALE_MAX}, got #{scale.inspect}"
+        end
       end
     end
   end
