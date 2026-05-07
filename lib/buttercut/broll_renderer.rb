@@ -33,7 +33,8 @@ class ButterCut
       validate_composition_exists!
       FileUtils.mkdir_p(@output_dir)
       out = output_path
-      tmp = "#{out}.tmp-#{Process.pid}-#{SecureRandom.hex(6)}"
+      ext = File.extname(out)
+      tmp = "#{out.delete_suffix(ext)}.tmp-#{Process.pid}-#{SecureRandom.hex(6)}#{ext}"
       File.delete(tmp) if File.exist?(tmp)
       begin
         run_render!(build_command(tmp))

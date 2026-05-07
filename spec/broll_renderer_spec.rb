@@ -67,7 +67,7 @@ RSpec.describe ButterCut::BrollRenderer do
         expect(captured.take(4).join(' ')).to match(/hyperframes/)
         expect(captured).to include('render')
         out_path = captured[captured.index('-o') + 1]
-        expect(out_path).to start_with(expected)
+        expect(out_path).to match(%r{\A#{Regexp.escape(File.join(out, 'br-0001'))}\.tmp-\d+-[0-9a-f]+\.mp4\z})
         json_idx = captured.index('--variables')
         vars = JSON.parse(captured[json_idx + 1])
         expect(vars).to include('command' => 'git rebase -i HEAD~3', 'caption' => 'Interactive rebase, last 3 commits')

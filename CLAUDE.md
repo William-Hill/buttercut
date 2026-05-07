@@ -210,6 +210,7 @@ Known migration triggers (match each to a `scripts/NNN_migrate_*.rb` script via 
 - `transcript_refinement` missing (added in [Unreleased]; missing means "predates the feature, default to `false`" — NOT the template default of `true`)
 - `footage_summary` missing OR old name `footage_description` present (renamed in [Unreleased])
 - video entries with `summary` missing (added in [Unreleased]; missing means "todo", default to empty string)
+- `theme` missing (added in [Unreleased]; run `scripts/004_migrate_add_theme.rb` to add the default block with `template_set: tutorial-dark`)
 - video entries with `transcript_path` / `visual_transcript_path` (renamed to `transcript` / `visual_transcript` in 0.3.0)
 - video entries with `file_size_mb` (removed in 0.3.0)
 
