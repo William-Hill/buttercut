@@ -1,0 +1,10 @@
+description: "fixture rough cut for b-roll integration"
+clips:
+  - source_file: "MVI_0323_720p.mov"
+    in_point: "00:00:00.00"
+    out_point: "00:00:05.00"
+    dialogue: ""
+    visual_description: ""
+metadata:
+  created_date: ""
+  total_duration: ""
