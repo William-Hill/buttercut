@@ -3,6 +3,7 @@ require 'pathname'
 require 'cgi'
 require 'json'
 require 'digest'
+require_relative 'overlay'
 
 class ButterCut
   # Shared functionality for editor-specific generators.
@@ -11,9 +12,9 @@ class ButterCut
     DEFAULT_INITIAL_OFFSET = "0s"
     DEFAULT_VOLUME_ADJUSTMENT = "-13.100000000000001db"
 
-    attr_reader :clips, :initial_offset, :volume_adjustment
+    attr_reader :clips, :overlays, :initial_offset, :volume_adjustment
 
-    def initialize(clips)
+    def initialize(clips, overlays: nil)
       raise ArgumentError, "No clips provided" if clips.nil? || clips.empty?
 
       clips.each_with_index do |clip, index|
@@ -32,12 +33,13 @@ class ButterCut
       end
 
       @clips = clips
+      @overlays = normalize_overlays(overlays)
       @initial_offset = DEFAULT_INITIAL_OFFSET
       @volume_adjustment = DEFAULT_VOLUME_ADJUSTMENT
 
       @metadata_cache = {}
-      @clips.each do |clip|
-        path = clip[:path]
+      metadata_paths = @clips.map { |c| c[:path] } + @overlays.map(&:source)
+      metadata_paths.uniq.each do |path|
         @metadata_cache[path] = extract_metadata_from_ffprobe(path)
       end
     end
@@ -435,6 +437,15 @@ class ButterCut
 
     def frame_duration_rational_for(frame_duration_fraction)
       fraction_to_rational(frame_duration_fraction)
+    end
+
+    private
+
+    def normalize_overlays(raw)
+      return [] if raw.nil? || raw.empty?
+      raw.map do |o|
+        o.is_a?(ButterCut::Overlay) ? o : ButterCut::Overlay.from_hash(o)
+      end
     end
 
     protected

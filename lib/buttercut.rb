@@ -3,6 +3,7 @@ require_relative 'buttercut/fcp7'
 require_relative 'buttercut/recipe'
 require_relative 'buttercut/broll_manifest'
 require_relative 'buttercut/broll_renderer'
+require_relative 'buttercut/overlay'
 require_relative 'buttercut/theme'
 
 # ButterCut - Video editor XML generator
@@ -22,7 +23,7 @@ require_relative 'buttercut/theme'
 class ButterCut
   SUPPORTED_EDITORS = [:fcpx, :fcp7].freeze
 
-  def self.new(clips, editor:)
+  def self.new(clips, editor:, overlays: nil)
     raise ArgumentError, "editor: parameter is required" if editor.nil?
 
     unless SUPPORTED_EDITORS.include?(editor)
@@ -31,11 +32,9 @@ class ButterCut
 
     case editor
     when :fcpx
-      ButterCut::FCPX.new(clips)
+      ButterCut::FCPX.new(clips, overlays: overlays)
     when :fcp7
-      ButterCut::FCP7.new(clips)
-    else
-      raise ArgumentError, "Editor #{editor.inspect} is not yet implemented."
+      ButterCut::FCP7.new(clips, overlays: overlays)
     end
   end
 end
