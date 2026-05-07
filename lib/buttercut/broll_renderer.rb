@@ -75,6 +75,10 @@ class ButterCut
       unless start_t.is_a?(Numeric) && end_t.is_a?(Numeric) && end_t > start_t
         raise ArgumentError, "entry start/end must be numeric with end > start, got start=#{start_t.inspect} end=#{end_t.inspect}"
       end
+      content = @entry['content']
+      unless content.nil? || content.is_a?(Hash)
+        raise ArgumentError, "entry content must be a hash when provided, got #{content.class}"
+      end
     end
 
     def variables
