@@ -69,6 +69,7 @@ class ButterCut
                     build_video_clipitem(xml, payload)
                   end
                 end
+                build_overlay_video_track(xml, timeline_frame_duration) if overlays.any?
               end
               xml.audio do
                 xml.numOutputChannels 2
@@ -255,6 +256,99 @@ class ButterCut
 
     def asset_audio_rate(asset)
       asset[:audio_rate] || format_audio_rate || '48000'
+    end
+
+    def build_overlay_video_track(xml, timeline_frame_duration)
+      xml.track do
+        overlays.each_with_index do |overlay, i|
+          build_overlay_clipitem(xml, overlay, i, timeline_frame_duration)
+        end
+      end
+    end
+
+    def build_overlay_clipitem(xml, overlay, index, timeline_frame_duration)
+      metadata = extract_metadata(overlay.source)
+      video_stream = metadata['streams'].find { |s| s['codec_type'] == 'video' }
+      asset_duration_seconds = metadata['format']['duration'].to_f
+
+      asset_rate_num, asset_rate_denom = (video_stream['r_frame_rate'] || '30/1').split('/').map(&:to_i)
+      asset_timebase = (asset_rate_num.to_f / asset_rate_denom).round
+      asset_ntsc = ntsc_flag_for(asset_rate_denom)
+
+      start_frame = frames_for_fraction(seconds_to_fraction(overlay.start), timeline_frame_duration)
+      duration_frame = frames_for_fraction(seconds_to_fraction(overlay.duration), timeline_frame_duration)
+      end_frame = start_frame + duration_frame
+
+      asset_duration_frames = frames_for_fraction(seconds_to_fraction(asset_duration_seconds), timeline_frame_duration)
+
+      filename = File.basename(overlay.source)
+      file_id = "file-overlay-#{overlay.source_id}"
+      clip_id = "clipitem-overlay-#{overlay.source_id}-#{index + 1}"
+
+      xml.clipitem(id: clip_id) do
+        xml.name "#{overlay.source_id} (#{filename})"
+        xml.enabled 'TRUE'
+        xml.duration duration_frame
+        xml.start start_frame
+        xml.end_ end_frame
+        xml.in_ 0
+        xml.out duration_frame
+        xml.file(id: file_id) do
+          xml.name filename
+          xml.pathurl path_to_file_url(overlay.source)
+          xml.rate do
+            xml.timebase asset_timebase
+            xml.ntsc asset_ntsc
+          end
+          xml.duration asset_duration_frames
+          xml.media do
+            xml.video do
+              xml.samplecharacteristics do
+                xml.rate do
+                  xml.timebase asset_timebase
+                  xml.ntsc asset_ntsc
+                end
+                xml.width video_stream['width']
+                xml.height video_stream['height']
+              end
+            end
+          end
+        end
+        build_basic_motion_filter(xml, overlay) if overlay.pip?
+      end
+    end
+
+    def build_basic_motion_filter(xml, overlay)
+      transform = overlay.pip_transform
+      return if transform.nil?
+
+      xml.filter do
+        xml.enabled 'TRUE'
+        xml.start 0
+        xml.end_(-1)
+        xml.effect do
+          xml.name 'Basic Motion'
+          xml.effectid 'basic'
+          xml.effectcategory 'motion'
+          xml.effecttype 'motion'
+          xml.mediatype 'video'
+          xml.parameter do
+            xml.name 'Scale'
+            xml.parameterid 'scale'
+            xml.value (transform[:scale] * 100.0).round(2)
+            xml.valuemin 0
+            xml.valuemax 1000
+          end
+          xml.parameter do
+            xml.name 'Center'
+            xml.parameterid 'center'
+            xml.value do
+              xml.horiz transform[:x].round(4)
+              xml.vert(-transform[:y].round(4)) # FCP7 inverts y vs. FCPXML
+            end
+          end
+        end
+      end
     end
   end
 end
