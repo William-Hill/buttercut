@@ -1,6 +1,7 @@
 font_display: Poppins
 font_mono: Fira Code
 color_bg: '#fff8f0'
+color_fg: '#1f1a14'
 color_accent: '#e07a3c'
 logo: assets/logo.svg
 motion: smooth

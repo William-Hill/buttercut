@@ -3,6 +3,7 @@ require 'yaml'
 class ButterCut
   class Theme
     VALID_MOTION = %w[snappy smooth minimal].freeze
+    SAFE_TEMPLATE_SET = /\A[a-z0-9][a-z0-9_-]*\z/
     PRESET_CACHE = {}
 
     def self.resolve(library_theme:, themes_dir:)
@@ -32,15 +33,20 @@ class ButterCut
       if template_set.nil? || template_set.to_s.empty?
         raise ArgumentError, "library_theme must include 'template_set'"
       end
+      unless template_set.is_a?(String) && template_set.match?(SAFE_TEMPLATE_SET)
+        raise ArgumentError, "invalid template_set: #{template_set.inspect}"
+      end
 
       path = File.join(@themes_dir, "#{template_set}.yaml")
       PRESET_CACHE[path] ||= begin
-        data = YAML.load_file(path)
+        data = YAML.safe_load_file(path, permitted_classes: [], aliases: false)
         raise ArgumentError, "theme preset #{path} must be a hash" unless data.is_a?(Hash)
         data
       end
     rescue Errno::ENOENT
       raise ArgumentError, "theme preset not found: #{path}"
+    rescue Psych::Exception => e
+      raise ArgumentError, "invalid theme preset YAML at #{path}: #{e.message}"
     end
 
     def validate_motion!(tokens)

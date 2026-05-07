@@ -59,6 +59,7 @@
       const theme = vars.theme || {};
       const root = document.documentElement.style;
       if (theme.color_bg) root.setProperty('--bg', theme.color_bg);
+      if (theme.color_fg) root.setProperty('--fg', theme.color_fg);
       if (theme.color_accent) root.setProperty('--accent', theme.color_accent);
       if (theme.font_display) root.setProperty('--font-display', `'${theme.font_display}', system-ui, sans-serif`);
       if (theme.font_mono) root.setProperty('--font-mono', `'${theme.font_mono}', ui-monospace, monospace`);

@@ -26,6 +26,7 @@ def migrate_library(library_path)
       font_display: Inter
       font_mono: JetBrains Mono
       color_bg: '#0d0d0d'
+      color_fg: '#f5f5f4'
       color_accent: '#ff6b35'
       logo: assets/logo.svg
       template_set: tutorial-dark

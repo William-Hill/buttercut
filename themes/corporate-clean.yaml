@@ -1,6 +1,7 @@
 font_display: Helvetica Neue
 font_mono: Source Code Pro
 color_bg: '#ffffff'
+color_fg: '#0a1a2c'
 color_accent: '#0057b7'
 logo: assets/logo.svg
 motion: minimal

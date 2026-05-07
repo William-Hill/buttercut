@@ -48,6 +48,17 @@ RSpec.describe ButterCut::Theme do
       }.to raise_error(ArgumentError, /preset/)
     end
 
+    it 'rejects template_set values that could escape themes_dir' do
+      %w[../escape ./relative ../../etc tutorial-dark/.. abs/path].each do |bad|
+        expect {
+          described_class.resolve(
+            library_theme: { 'template_set' => bad },
+            themes_dir: themes_dir
+          )
+        }.to raise_error(ArgumentError, /invalid template_set/)
+      end
+    end
+
     it 'raises when motion is invalid' do
       expect {
         described_class.resolve(
@@ -72,7 +83,7 @@ RSpec.describe ButterCut::Theme do
         path = File.join(themes_dir, "#{name}.yaml")
         expect(File).to exist(path)
         data = YAML.load_file(path)
-        %w[font_display font_mono color_bg color_accent logo motion].each do |key|
+        %w[font_display font_mono color_bg color_fg color_accent logo motion].each do |key|
           expect(data).to have_key(key), "#{name}.yaml missing key: #{key}"
         end
         expect(%w[snappy smooth minimal]).to include(data['motion'])
