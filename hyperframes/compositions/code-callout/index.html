@@ -4,7 +4,8 @@
   data-composition-variables='[
     {"id":"command","type":"string","label":"Command","default":"git status"},
     {"id":"caption","type":"string","label":"Caption","default":""},
-    {"id":"duration","type":"number","label":"Duration","default":5}
+    {"id":"duration","type":"number","label":"Duration","default":5},
+    {"id":"theme","type":"object","label":"Theme tokens","default":{}}
   ]'
 >
   <head>
@@ -19,11 +20,13 @@
         --fg: #f5f5f4;
         --accent: #ff6b35;
         --muted: #a3a3a3;
+        --font-display: 'Inter', system-ui, sans-serif;
+        --font-mono: 'JetBrains Mono', ui-monospace, monospace;
       }
       * { margin: 0; padding: 0; box-sizing: border-box; }
       html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--bg); color: var(--fg); }
-      body { font-family: 'Inter', system-ui, sans-serif; }
-      .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+      body { font-family: var(--font-display); }
+      .mono { font-family: var(--font-mono); }
     </style>
   </head>
   <body>
@@ -52,6 +55,13 @@
       // tracked as a follow-up.
       const vars = (window.__hyperframes && window.__hyperframes.getVariables && window.__hyperframes.getVariables()) || {};
       const duration = 5;
+
+      const theme = vars.theme || {};
+      const root = document.documentElement.style;
+      if (theme.color_bg) root.setProperty('--bg', theme.color_bg);
+      if (theme.color_accent) root.setProperty('--accent', theme.color_accent);
+      if (theme.font_display) root.setProperty('--font-display', `'${theme.font_display}', system-ui, sans-serif`);
+      if (theme.font_mono) root.setProperty('--font-mono', `'${theme.font_mono}', ui-monospace, monospace`);
 
       document.getElementById('cmd').textContent = vars.command || 'git status';
       document.getElementById('cap').textContent = vars.caption || '';
