@@ -545,7 +545,7 @@ def main():
     with open(RECIPE_PATH, encoding="utf-8") as f:
         recipe = json.load(f)
 
-    supported_versions = {1, 2}
+    supported_versions = {1, 2, 3}
     if recipe.get("version") not in supported_versions:
         print(
             f"[apply_recipe] ERROR: recipe version {recipe.get('version')!r} unsupported "
