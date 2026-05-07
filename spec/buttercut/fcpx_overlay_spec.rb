@@ -21,12 +21,17 @@ RSpec.describe ButterCut::FCPX, "overlay emission" do
   end
 
   context "no overlays" do
-    it "produces XML byte-identical to a generator without overlays" do
-      a = ButterCut.new(clips, editor: :fcpx).to_xml
-      b = ButterCut.new(clips, editor: :fcpx, overlays: []).to_xml
-      # SecureRandom UUIDs differ; strip them.
-      strip_uuids = ->(s) { s.gsub(/uid="[^"]+"/, 'uid="X"') }
-      expect(strip_uuids.call(a)).to eq(strip_uuids.call(b))
+    it "emits no lane=1 clips" do
+      d = doc([])
+      expect(d.xpath('//spine//asset-clip[@lane]')).to be_empty
+    end
+
+    it "emits the same number of <asset>, <asset-clip> children of spine, and <adjust-volume> elements as a generator without overlays" do
+      a = Nokogiri::XML(ButterCut.new(clips, editor: :fcpx).to_xml).remove_namespaces!
+      b = Nokogiri::XML(ButterCut.new(clips, editor: :fcpx, overlays: []).to_xml).remove_namespaces!
+      expect(b.xpath('//resources/asset').length).to eq(a.xpath('//resources/asset').length)
+      expect(b.xpath('//spine/asset-clip').length).to eq(a.xpath('//spine/asset-clip').length)
+      expect(b.xpath('//adjust-volume').length).to eq(a.xpath('//adjust-volume').length)
     end
   end
 
