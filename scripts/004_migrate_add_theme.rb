@@ -1,18 +1,6 @@
 #!/usr/bin/env ruby
-# Migration script: Add the `theme:` block to libraries that predate the
-# theme feature (issue #27).
-#
-# The theme block defines fonts, colors, logo, and motion preset that
-# Hyperframes compositions read when rendering b-roll graphics. Libraries
-# created before the feature have no `theme:` key. The migration inserts the
-# default block (matching `templates/library_template.yaml`, with
-# `template_set: tutorial-dark`) directly before the `footage_summary:` line.
-#
-# Libraries that already have the key are left alone.
-#
-# This migration edits the file textually — it does not round-trip through
-# YAML, so quote styles and indentation elsewhere in the file are preserved
-# exactly.
+# Edits library.yaml textually rather than round-tripping through YAML so
+# quote styles and indentation elsewhere in the file are preserved exactly.
 #
 # Usage: ruby scripts/004_migrate_add_theme.rb [library_name]
 #        ruby scripts/004_migrate_add_theme.rb --all

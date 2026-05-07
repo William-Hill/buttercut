@@ -30,7 +30,7 @@ RSpec.describe ButterCut::Theme do
       )
       expect(tokens['color_accent']).to eq('#00ff00')
       expect(tokens['logo']).to eq('assets/custom.svg')
-      expect(tokens['font_display']).to eq('Inter') # untouched preset value
+      expect(tokens['font_display']).to eq('Inter')
     end
 
     it 'raises when template_set is missing' do

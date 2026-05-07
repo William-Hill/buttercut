@@ -1,15 +1,9 @@
 require 'yaml'
 
 class ButterCut
-  # Resolves a library's theme block against a preset file in the themes/
-  # directory and returns the merged token hash. Hyperframes compositions read
-  # these tokens (font_display, font_mono, color_bg, color_accent, logo, motion)
-  # to render b-roll graphics that look consistent across a video series.
-  #
-  # See `themes/` for bundled presets and `templates/library_template.yaml` for
-  # the library-side schema. Issue #27.
   class Theme
     VALID_MOTION = %w[snappy smooth minimal].freeze
+    PRESET_CACHE = {}
 
     def self.resolve(library_theme:, themes_dir:)
       new(library_theme: library_theme, themes_dir: themes_dir).resolve
@@ -40,13 +34,13 @@ class ButterCut
       end
 
       path = File.join(@themes_dir, "#{template_set}.yaml")
-      unless File.exist?(path)
-        raise ArgumentError, "theme preset not found: #{path}"
+      PRESET_CACHE[path] ||= begin
+        data = YAML.load_file(path)
+        raise ArgumentError, "theme preset #{path} must be a hash" unless data.is_a?(Hash)
+        data
       end
-
-      data = YAML.load_file(path)
-      raise ArgumentError, "theme preset #{path} must be a hash" unless data.is_a?(Hash)
-      data
+    rescue Errno::ENOENT
+      raise ArgumentError, "theme preset not found: #{path}"
     end
 
     def validate_motion!(tokens)
