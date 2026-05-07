@@ -75,7 +75,7 @@ RSpec.describe RecipeFromRoughcut do
       )
 
       h = JSON.parse(File.read(recipe_path))
-      expect(h["version"]).to eq(2)
+      expect(h["version"]).to eq(3)
       expect(h["library"]).to eq("march-30-workout")
       expect(h["timeline"]).to eq("highlight-reel_20260430_184655")
       expect(h["clips"].map { |c| c["index"] }).to eq([1, 2, 3, 4])

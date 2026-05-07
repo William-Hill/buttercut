@@ -7,8 +7,9 @@ class ButterCut
   # an optional title card, render preset, and PowerGrade reference. The
   # recipe is consumed by a Resolve apply script (see Sprint 1).
   class Recipe
-    SCHEMA_VERSION = 2
-    SUPPORTED_VERSIONS = [1, 2].freeze
+    SCHEMA_VERSION = 3
+    SUPPORTED_VERSIONS = [1, 2, 3].freeze
+    BROLL_PLACEMENTS = %w[overlay cutaway pip].freeze
     DEFAULT_FUSE_ROOT = File.expand_path('../../fuses', __dir__)
 
     CLIP_COLOR_TAGS = %w[
@@ -37,6 +38,7 @@ class ButterCut
         powergrade: hash["powergrade"],
         transitions: hash.key?("transitions") ? hash["transitions"] : [],
         title_card: hash["title_card"],
+        broll: hash.key?("broll") ? hash["broll"] : nil,
         fuse_library: fuse_library
       )
     end
@@ -45,7 +47,7 @@ class ButterCut
       from_hash(JSON.parse(File.read(path)), fuse_library: fuse_library)
     end
 
-    def initialize(version:, library:, timeline:, clips:, render_preset: nil, powergrade: nil, transitions: [], title_card: nil, fuse_library: nil)
+    def initialize(version:, library:, timeline:, clips:, render_preset: nil, powergrade: nil, transitions: [], title_card: nil, broll: nil, fuse_library: nil)
       @version = version
       @library = library
       @timeline = timeline
@@ -54,6 +56,7 @@ class ButterCut
       @powergrade = powergrade
       @transitions = transitions
       @title_card = title_card
+      @broll = broll
       @fuse_library = fuse_library
 
       validate!
@@ -70,6 +73,7 @@ class ButterCut
       h["clips"] = @clips
       h["transitions"] = @transitions unless @transitions.empty?
       h["title_card"] = @title_card if @title_card
+      h["broll"] = @broll if @broll && !@broll.empty?
       h
     end
 
@@ -92,6 +96,30 @@ class ButterCut
       validate_powergrade! if @powergrade
       validate_transitions!
       validate_title_card! if @title_card
+      validate_broll! unless @broll.nil?
+    end
+
+    def validate_broll!
+      raise ArgumentError, "broll must be an array" unless @broll.is_a?(Array)
+      @broll.each_with_index do |entry, i|
+        raise ArgumentError, "broll[#{i}] must be a hash" unless entry.is_a?(Hash)
+        %w[id start end placement source source_video].each do |field|
+          unless entry.key?(field) && !entry[field].nil?
+            raise ArgumentError, "broll[#{i}] missing required field #{field.inspect}"
+          end
+        end
+        validate_string!(entry["id"], "broll[#{i}] id")
+        validate_string!(entry["source"], "broll[#{i}] source")
+        validate_string!(entry["source_video"], "broll[#{i}] source_video")
+        validate_non_negative_number!(entry["start"], "broll[#{i}] start")
+        validate_non_negative_number!(entry["end"], "broll[#{i}] end")
+        unless entry["end"] > entry["start"]
+          raise ArgumentError, "broll[#{i}] end must be greater than start"
+        end
+        unless BROLL_PLACEMENTS.include?(entry["placement"])
+          raise ArgumentError, "broll[#{i}] placement #{entry["placement"].inspect} not in #{BROLL_PLACEMENTS.inspect}"
+        end
+      end
     end
 
     def validate_version!
