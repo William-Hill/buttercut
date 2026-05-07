@@ -48,6 +48,13 @@ RSpec.describe ButterCut::FCP7, "overlay emission" do
       expect(end_frame).to be > start_frame
       expect(start_frame).to be >= 0
     end
+
+    it "emits no <filter> for non-pip overlays" do
+      d = doc([overlay])
+      v2 = d.xpath('//media/video/track')[1]
+      item = v2.xpath('./clipitem').first
+      expect(item.xpath('./filter')).to be_empty
+    end
   end
 
   context "pip overlay" do
@@ -62,6 +69,18 @@ RSpec.describe ButterCut::FCP7, "overlay emission" do
       scale_param = item.xpath('./filter/effect/parameter[name="Scale"]/value').first
       expect(scale_param).not_to be_nil
       expect(scale_param.text.to_f).to be_within(0.01).of(25.0) # FCP7 Scale 0..100
+    end
+
+    it "inverts y between FCPXML and FCP7 (top_right => positive horiz, negative vert)" do
+      d = doc([pip_overlay])
+      v2 = d.xpath('//media/video/track')[1]
+      item = v2.xpath('./clipitem').first
+      center = item.xpath('./filter/effect/parameter[name="Center"]/value').first
+      expect(center).not_to be_nil
+      horiz = center.xpath('./horiz').text.to_f
+      vert  = center.xpath('./vert').text.to_f
+      expect(horiz).to be > 0
+      expect(vert).to be < 0
     end
   end
 end
