@@ -571,6 +571,10 @@ def main():
     print(f"[apply_recipe] library: {recipe.get('library')!r}  timeline: {recipe.get('timeline')!r}")
     print(f"[apply_recipe] active timeline: {timeline.GetName()!r}  ({len(timeline.GetItemListInTrack('video', 1) or [])} items on V1)")
 
+    broll_clips = recipe.get('broll', [])
+    if broll_clips:
+        print(f"  • {len(broll_clips)} b-roll clip(s) present (placement is carried in the XML; nothing to apply here)")
+
     Applier(recipe, project, timeline).apply()
 
 
