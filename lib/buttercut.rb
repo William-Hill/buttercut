@@ -2,6 +2,7 @@ require_relative 'buttercut/fcpx'
 require_relative 'buttercut/fcp7'
 require_relative 'buttercut/recipe'
 require_relative 'buttercut/broll_manifest'
+require_relative 'buttercut/broll_renderer'
 
 # ButterCut - Video editor XML generator
 #
