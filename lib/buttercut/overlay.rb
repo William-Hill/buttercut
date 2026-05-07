@@ -11,8 +11,9 @@ class ButterCut
     DEFAULT_PIP_CORNER = "top_right"
     DEFAULT_PIP_SCALE = 0.33
 
-    # Margin from frame edge as fraction of half-frame, applied after scaling.
-    # 0.05 = inset 5% of half-frame from the edge after scale.
+    # Inset, in centered-fraction units, between the scaled clip's edge and the
+    # frame's edge. 0.05 means the clip edge sits 0.05 (5% of the full frame
+    # dimension) inside the frame edge after scaling.
     PIP_EDGE_MARGIN = 0.05
 
     attr_reader :source, :source_id, :start, :duration, :placement,
