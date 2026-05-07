@@ -10,7 +10,7 @@
 #   libraries/[library-name]/roughcuts/[roughcut-id].broll.yaml
 
 # Schema version — bumped on breaking changes; validator rejects unknown.
-version: 1
+version: 2
 
 # Library this manifest belongs to. Must match the library directory name.
 library: example-library
@@ -44,4 +44,16 @@ entries:
     content:
       term: "rebase"
       definition: "Replay commits onto a new base"
+    rendered: null
+
+  - id: br-0003
+    source_video: tutorial_01.mov
+    start: 95.00
+    end:   100.00
+    template: code-callout
+    placement: pip
+    pip_corner: top_right     # top_right | top_left | bottom_right | bottom_left (default top_right)
+    pip_scale: 0.33           # 0.05..0.95 fraction of frame (default 0.33)
+    content:
+      command: "ls -la"
     rendered: null
