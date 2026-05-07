@@ -9,6 +9,18 @@ user_context: ""
 # Whenever you ask the user questions about the library, save a summarized version here.
 # ie; The man wearing the dark blue long sleeve shirt is "Andrew". The small brown dog is "Sammy". This footage was shot over one evening.
 
+# Theme block — drives consistent fonts/colors across Hyperframes b-roll
+# graphics for this library. `template_set` selects a preset from `themes/`;
+# any other key here overrides the preset's value.
+theme:
+  font_display: Inter
+  font_mono: JetBrains Mono
+  color_bg: '#0d0d0d'
+  color_accent: '#ff6b35'
+  logo: assets/logo.svg
+  template_set: tutorial-dark
+  motion: snappy   # snappy | smooth | minimal
+
 # Full footage summary - progressively updated after each video is transcribed. This can be up to 10-20 lines summarizing all of the footage we have.
 footage_summary: "No footage analyzed yet."
 # "This footage appears to be wedding footage. It includes the bride and groom getting dressed, preparing for the wedding ceremomy, the ceremony, and the post ceremony dinner and party."
