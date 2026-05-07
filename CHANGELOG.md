@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Library theme block + bundled presets (#27).** New `theme:` block in `library.yaml` (fonts, colors, logo, motion, `template_set`) plus three bundled preset YAMLs in `themes/` (`tutorial-dark`, `vlog-warm`, `corporate-clean`). `ButterCut::Theme.resolve` loads the named preset and merges any library-level overrides over it so Hyperframes compositions render with consistent typography and palette across a series. Migration: `ruby scripts/004_migrate_add_theme.rb --all` adds the default block to libraries that predate the feature.
 - **B-roll manifest schema (Hyperframes foundation).** New `*.broll.yaml` artifact format and validator (`lib/buttercut/broll_manifest.rb`) that the b-roll director will emit and the Hyperframes render skill / roughcut integration will consume. Each entry pairs a footage timestamp with a template, placement (`overlay` / `cutaway` / `pip`), and template-specific content payload. Canonical example in `templates/broll_template.yaml`. First slice of the Hyperframes integration epic (#63, schema task #64).
 - `fuses/` with five bundled Fusion fuses: `ChromaPulse`, `VHSGlitch`, `FilmGrain`, `LightLeak`, and `ZoomPunch`. (#23)
 - `ButterCut::FuseLibrary` for loading and validating fuse manifests. (#23)
