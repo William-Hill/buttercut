@@ -416,6 +416,10 @@ class ButterCut
       [clips, current_offset]
     end
 
+    def fraction_to_seconds(value)
+      fraction_to_rational(value).to_f
+    end
+
     def fraction_to_rational(value)
       value = seconds_to_fraction(value) if value.is_a?(Numeric)
       return Rational(0, 1) if value == "0s"
