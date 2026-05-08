@@ -5,6 +5,8 @@ require_relative "timecode"
 class ButterCut
   class BrollDirectorPostprocess
     DENSITY_BUDGETS = { "low" => 2, "medium" => 4, "high" => 8 }.freeze
+    CODE_CALLOUT_TEMPLATE = "code-callout"
+    CODE_PUNCT = /[^\p{L}\p{N}\s_]/u.freeze
 
     def self.assemble(library_name:, roughcut_stem:, roughcut:, candidates:,
                       available_templates:, density:, score_threshold:,
@@ -74,7 +76,7 @@ class ButterCut
       score = c["score"].to_f
       return nil if score < @score_threshold
       return nil if blacklisted?(c)
-      return nil if c["template"] == "code-callout" && !valid_code_command?(c["content"])
+      return nil if c["template"] == CODE_CALLOUT_TEMPLATE && !valid_code_command?(c["content"])
 
       mapping = locate_in_cut(c)
       return nil if mapping.nil?
@@ -123,13 +125,7 @@ class ButterCut
       nil
     end
 
-    # A code-callout `command` should look like a shell/code string, not prose.
-    # Verbal-form leakage from transcription ("dash i tilde three") shows up
-    # as 3+ alphabetic words with no punctuation, no digits, and no token
-    # the library has marked as code vocabulary. Drop those — better to
-    # render nothing than confidently wrong code.
-    CODE_PUNCT = /[^\p{L}\p{N}\s_]/u.freeze
-
+    # Better to render nothing than confidently wrong code.
     def valid_code_command?(content)
       return false unless content.is_a?(Hash)
       cmd = content["command"].to_s.strip
