@@ -17,6 +17,7 @@ import { parseRoughcutRecipeJson, type RecipeJson } from "../../lib/recipeTypes"
 import type { VideoEntry } from "./types";
 import RoughcutStagePreview from "./RoughcutStagePreview";
 import RoughcutTimeline from "./RoughcutTimeline";
+import { AddBrollButton } from "./AddBrollButton";
 import {
   listenRoughcutJobEvents,
   type RoughcutArtifactPaths,
@@ -565,6 +566,11 @@ export default function BriefComposer({ library, videos }: { library: string; vi
                 >
                   Send to Resolve
                 </button>
+                <AddBrollButton
+                  library={library}
+                  roughcutStem={basenameNoExt(donePaths.yaml_path)}
+                  hasManifest={false}
+                />
               </div>
               {exportStatus && <p className="brief-composer__phase">{exportStatus}</p>}
               {exportError && <pre className="brief-composer__error">{exportError}</pre>}

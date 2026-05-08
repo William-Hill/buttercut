@@ -1,4 +1,5 @@
 $LOAD_PATH.unshift File.expand_path("..", __dir__)
+$LOAD_PATH.unshift File.expand_path("../../../lib", __dir__)
 
 RSpec.configure do |c|
   c.expect_with(:rspec) { |e| e.syntax = :expect }
