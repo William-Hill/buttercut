@@ -2,6 +2,7 @@
 
 require "json"
 require "pathname"
+require "securerandom"
 require "yaml"
 require "date"
 
@@ -9,6 +10,7 @@ require "buttercut/broll_director_inputs"
 require "buttercut/broll_director_postprocess"
 require "buttercut/broll_manifest"
 
+require_relative "analysis_job"
 require_relative "anthropic_client"
 
 module ButtercutUiSidecar
@@ -43,31 +45,37 @@ module ButtercutUiSidecar
 
     def validate_and_start!(library:, roughcut_stem:, density: DEFAULT_DENSITY,
                             score_threshold: DEFAULT_SCORE_THRESHOLD)
-      roughcut_path = @libraries_root.join(library, "roughcuts", "#{roughcut_stem}.yaml")
+      stem = safe_roughcut_stem!(roughcut_stem)
+      roughcut_path = @libraries_root.join(library, "roughcuts", "#{stem}.yaml")
       raise "rough cut not found at #{roughcut_path}" unless roughcut_path.file?
 
-      job_id = @registry.create(library)
+      job_id = "job-#{SecureRandom.hex(6)}"
+      @registry.put(job_id, AnalysisJob.new(id: job_id, library: library))
+
       Thread.new do
         begin
           run!(
-            library: library, roughcut_stem: roughcut_stem,
+            library: library, roughcut_stem: stem,
             density: density, score_threshold: score_threshold,
             job_id: job_id
           )
         rescue StandardError => e
           warn "[broll-director #{job_id}] FAILED #{e.class}: #{e.message}"
           @notifier.notify(EVENT_FAILED, job_id: job_id, message: e.message)
+        ensure
+          @registry.delete(job_id)
         end
       end
       job_id
     end
 
     def run!(library:, roughcut_stem:, density:, score_threshold:, job_id: nil)
+      stem = safe_roughcut_stem!(roughcut_stem)
       lib_dir = @libraries_root.join(library)
-      roughcut_path = lib_dir.join("roughcuts", "#{roughcut_stem}.yaml")
+      roughcut_path = lib_dir.join("roughcuts", "#{stem}.yaml")
       raise "rough cut not found at #{roughcut_path}" unless roughcut_path.file?
 
-      notify(job_id, EVENT_STARTED, library: library, roughcut_stem: roughcut_stem)
+      notify(job_id, EVENT_STARTED, library: library, roughcut_stem: stem)
       notify(job_id, EVENT_PHASE, phase: PHASE_GATHER, message: "Gathering transcripts and templates…")
 
       inputs = ButterCut::BrollDirectorInputs.gather(
@@ -90,7 +98,7 @@ module ButtercutUiSidecar
         score_threshold: score_threshold
       )
 
-      manifest_path = lib_dir.join("roughcuts", "#{roughcut_stem}.broll.yaml")
+      manifest_path = lib_dir.join("roughcuts", "#{stem}.broll.yaml")
       warn_if_overwriting(manifest_path)
       ButterCut::BrollManifest.from_hash(manifest_hash).save(manifest_path.to_s)
 
@@ -103,6 +111,14 @@ module ButtercutUiSidecar
     end
 
     private
+
+    def safe_roughcut_stem!(roughcut_stem)
+      stem = roughcut_stem.to_s
+      if stem.empty? || stem != File.basename(stem) || stem.include?("/") || stem.include?("\\")
+        raise ArgumentError, "invalid roughcut_stem: #{roughcut_stem.inspect}"
+      end
+      stem
+    end
 
     def notify(job_id, event, **payload)
       return if job_id.nil?
@@ -132,10 +148,13 @@ module ButtercutUiSidecar
     end
 
     def warn_if_overwriting(path)
-      prior = YAML.safe_load(path.read, permitted_classes: [Date, Time], aliases: true)
-      n = (prior["entries"] || []).length
+      prior = YAML.safe_load(path.read, permitted_classes: [Date, Time], aliases: true) || {}
+      n = Array(prior["entries"]).length
       warn "[broll-director] overwriting existing manifest at #{path} (#{n} prior entries)"
     rescue Errno::ENOENT
+      nil
+    rescue Psych::Exception, TypeError => e
+      warn "[broll-director] overwriting unreadable manifest at #{path} (#{e.class}: #{e.message})"
       nil
     end
   end

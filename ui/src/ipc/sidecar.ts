@@ -120,13 +120,20 @@ export async function startRoughcut(library: string, briefId: string): Promise<{
   return invoke("start_roughcut", { library, briefId });
 }
 
+export type BrollDirectorDensity = "low" | "medium" | "high";
+
 export async function startBrollDirector(args: {
   library: string;
   roughcutStem: string;
-  density?: string;
+  density?: BrollDirectorDensity;
   scoreThreshold?: number;
 }): Promise<string> {
-  // The sidecar's `broll_director_start` returns the raw job_id string.
+  if (
+    args.scoreThreshold != null &&
+    (!Number.isFinite(args.scoreThreshold) || args.scoreThreshold < 0 || args.scoreThreshold > 1)
+  ) {
+    throw new Error("scoreThreshold must be a finite number between 0 and 1");
+  }
   return invoke<string>("start_broll_director", {
     library: args.library,
     roughcutStem: args.roughcutStem,

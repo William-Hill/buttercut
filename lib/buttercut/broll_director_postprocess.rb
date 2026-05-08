@@ -21,6 +21,10 @@ class ButterCut
 
     def initialize(library_name:, roughcut_stem:, roughcut:, candidates:,
                    available_templates:, density:, score_threshold:)
+      raise ArgumentError, "candidates must be an array, got #{candidates.class}" unless candidates.is_a?(Array)
+      bad = candidates.reject { |c| c.is_a?(Hash) }
+      raise ArgumentError, "every candidate must be a hash; got #{bad.first.class} at index #{candidates.index(bad.first)}" unless bad.empty?
+
       @library_name = library_name
       @roughcut_stem = roughcut_stem
       @roughcut = roughcut

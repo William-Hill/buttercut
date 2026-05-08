@@ -58,7 +58,16 @@ class ButterCut
     end
 
     def load_source_videos(library, roughcut)
-      videos_by_basename = (library["videos"] || []).each_with_object({}) do |v, h|
+      videos = library["videos"] || []
+      duplicates = videos
+        .group_by { |v| File.basename(v["path"].to_s) }
+        .select { |basename, items| !basename.empty? && items.length > 1 }
+        .keys
+      unless duplicates.empty?
+        raise ArgumentError, "duplicate source video basenames in library.yaml: #{duplicates.join(', ')}"
+      end
+
+      videos_by_basename = videos.each_with_object({}) do |v, h|
         h[File.basename(v["path"].to_s)] = v
       end
 

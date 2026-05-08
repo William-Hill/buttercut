@@ -5,18 +5,13 @@ require "json"
 require "yaml"
 require "pathname"
 require "date"
+require_relative "../../../lib/buttercut_ui_sidecar/job_registry"
 require_relative "../../../lib/buttercut_ui_sidecar/broll_director_controller"
 
 RSpec.describe ButtercutUiSidecar::BrollDirectorController do
   let(:repo_root) { File.expand_path("../../../../..", __dir__) }
   let(:notifier) { double("notifier", notify: nil) }
-  let(:registry) {
-    Class.new {
-      def initialize; @jobs = {}; end
-      def create(_); id = "job-#{@jobs.size + 1}"; @jobs[id] = { canceled: false }; id; end
-      def canceled?(id); @jobs[id][:canceled]; end
-    }.new
-  }
+  let(:registry) { ButtercutUiSidecar::JobRegistry.new }
 
   let(:fixture_lib) {
     File.expand_path("../../../../../spec/fixtures/broll_director/sample_library", __dir__)
@@ -72,6 +67,22 @@ RSpec.describe ButtercutUiSidecar::BrollDirectorController do
         controller.run!(library: "sample-library", roughcut_stem: "nope",
                         density: "medium", score_threshold: 0.5)
       }.to raise_error(/rough cut not found/)
+    end
+  end
+
+  it "rejects roughcut_stem values that try to escape the roughcuts directory" do
+    with_libraries_root do |root|
+      controller = described_class.new(
+        libraries_root: root.to_s, repo_root: repo_root,
+        notifier: notifier, registry: registry,
+        client: double("c")
+      )
+      ["../../../etc/passwd", "foo/bar", "..\\\\evil", "", "a/b"].each do |bad|
+        expect {
+          controller.run!(library: "sample-library", roughcut_stem: bad,
+                          density: "medium", score_threshold: 0.5)
+        }.to raise_error(ArgumentError, /invalid roughcut_stem/), "expected reject for #{bad.inspect}"
+      end
     end
   end
 end

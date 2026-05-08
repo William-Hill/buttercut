@@ -29,11 +29,7 @@ The vertical slice for Hyperframes already runs end-to-end when the manifest is 
   agent_prompt.md                    # canonical director prompt (single source of truth)
 
 ui/sidecar/lib/buttercut_ui_sidecar/
-  broll_director_controller.rb       # mirrors RoughcutController; uses Anthropic API directly
-
-ui/sidecar/prompts/
-  broll_director.md                  # mirror of .claude/skills/broll-director/agent_prompt.md
-                                     # (kept in sync via a tiny pre-load step in the controller)
+  broll_director_controller.rb       # mirrors RoughcutController; loads .claude/skills/broll-director/agent_prompt.md directly
 
 ui/src/routes/library/
   RoughcutTimeline.tsx               # adds "Add B-Roll" button per finished rough cut row

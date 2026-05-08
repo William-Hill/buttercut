@@ -12,6 +12,19 @@ type Props = {
 
 type Phase = "idle" | "gather" | "model" | "write" | "done" | "error";
 
+const PHASES: ReadonlySet<Phase> = new Set([
+  "idle",
+  "gather",
+  "model",
+  "write",
+  "done",
+  "error",
+]);
+
+function toPhase(value: string | undefined): Phase {
+  return value && PHASES.has(value as Phase) ? (value as Phase) : "gather";
+}
+
 export function AddBrollButton({
   library,
   roughcutStem,
@@ -44,8 +57,8 @@ export function AddBrollButton({
           case "broll_job_started":
             break;
           case "broll_phase":
-            setPhase((ev.params.phase as Phase) ?? "gather");
-            setMessage(ev.params.message ?? ev.params.phase);
+            setPhase(toPhase(ev.params.phase));
+            setMessage(ev.params.message ?? ev.params.phase ?? "");
             break;
           case "broll_job_done":
             setPhase("done");
