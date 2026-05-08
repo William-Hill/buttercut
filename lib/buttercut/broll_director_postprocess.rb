@@ -47,6 +47,7 @@ class ButterCut
       @score_threshold = threshold
       raise ArgumentError, "blacklist_terms must be an array, got #{blacklist_terms.class}" unless blacklist_terms.is_a?(Array)
       @blacklist_terms = blacklist_terms.map { |t| t.to_s.downcase.strip }.reject(&:empty?)
+      @clip_windows = build_clip_windows(@roughcut["clips"])
     end
 
     def assemble
@@ -87,25 +88,33 @@ class ButterCut
       }
     end
 
-    def locate_in_cut(c)
+    def build_clip_windows(clips)
       cursor = 0.0
-      @roughcut["clips"].each do |clip|
+      clips.map do |clip|
         clip_in = ButterCut::Timecode.to_seconds(clip["in"])
         clip_out = ButterCut::Timecode.to_seconds(clip["out"])
-        clip_len = clip_out - clip_in
+        window = {
+          source_video: clip["source_video"],
+          in_s: clip_in,
+          out_s: clip_out,
+          cursor: cursor
+        }
+        cursor += (clip_out - clip_in)
+        window
+      end
+    end
 
-        if clip["source_video"] == c["source_video"]
-          s = c["source_start"].to_f
-          e = c["source_end"].to_f
-          if e > clip_in && s < clip_out
-            mapped_start = cursor + [s, clip_in].max - clip_in
-            mapped_end   = cursor + [e, clip_out].min - clip_in
-            return nil if mapped_end <= mapped_start
-            return { start: mapped_start.round(2), end: mapped_end.round(2) }
-          end
-        end
+    def locate_in_cut(c)
+      s = c["source_start"].to_f
+      e = c["source_end"].to_f
+      @clip_windows.each do |w|
+        next unless w[:source_video] == c["source_video"]
+        next unless e > w[:in_s] && s < w[:out_s]
 
-        cursor += clip_len
+        mapped_start = w[:cursor] + [s, w[:in_s]].max - w[:in_s]
+        mapped_end   = w[:cursor] + [e, w[:out_s]].min - w[:in_s]
+        return nil if mapped_end <= mapped_start
+        return { start: mapped_start.round(2), end: mapped_end.round(2) }
       end
       nil
     end
