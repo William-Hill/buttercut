@@ -37,6 +37,7 @@ class ButterCut
         roughcut_stem: @roughcut_path.basename.sub_ext("").to_s,
         roughcut: roughcut,
         theme: library["theme"] || {},
+        broll: library["broll"] || {},
         source_videos: sources,
         available_templates: load_templates
       }

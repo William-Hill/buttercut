@@ -7,7 +7,8 @@ class ButterCut
     DENSITY_BUDGETS = { "low" => 2, "medium" => 4, "high" => 8 }.freeze
 
     def self.assemble(library_name:, roughcut_stem:, roughcut:, candidates:,
-                      available_templates:, density:, score_threshold:)
+                      available_templates:, density:, score_threshold:,
+                      blacklist_terms: [])
       new(
         library_name: library_name,
         roughcut_stem: roughcut_stem,
@@ -15,12 +16,14 @@ class ButterCut
         candidates: candidates,
         available_templates: available_templates,
         density: density,
-        score_threshold: score_threshold
+        score_threshold: score_threshold,
+        blacklist_terms: blacklist_terms
       ).assemble
     end
 
     def initialize(library_name:, roughcut_stem:, roughcut:, candidates:,
-                   available_templates:, density:, score_threshold:)
+                   available_templates:, density:, score_threshold:,
+                   blacklist_terms: [])
       raise ArgumentError, "candidates must be an array, got #{candidates.class}" unless candidates.is_a?(Array)
       bad = candidates.reject { |c| c.is_a?(Hash) }
       raise ArgumentError, "every candidate must be a hash; got #{bad.first.class} at index #{candidates.index(bad.first)}" unless bad.empty?
@@ -42,6 +45,8 @@ class ButterCut
         raise ArgumentError, "score_threshold must be a finite number between 0.0 and 1.0, got #{score_threshold.inspect}"
       end
       @score_threshold = threshold
+      raise ArgumentError, "blacklist_terms must be an array, got #{blacklist_terms.class}" unless blacklist_terms.is_a?(Array)
+      @blacklist_terms = blacklist_terms.map { |t| t.to_s.downcase.strip }.reject(&:empty?)
     end
 
     def assemble
@@ -64,6 +69,7 @@ class ButterCut
       return nil unless @template_names.include?(c["template"])
       score = c["score"].to_f
       return nil if score < @score_threshold
+      return nil if blacklisted?(c)
 
       mapping = locate_in_cut(c)
       return nil if mapping.nil?
@@ -102,6 +108,22 @@ class ButterCut
         cursor += clip_len
       end
       nil
+    end
+
+    def blacklisted?(c)
+      return false if @blacklist_terms.empty?
+      haystack = content_text(c["content"]).downcase
+      return false if haystack.empty?
+      @blacklist_terms.any? { |term| haystack.include?(term) }
+    end
+
+    def content_text(content)
+      case content
+      when Hash then content.values.map { |v| content_text(v) }.join(" ")
+      when Array then content.map { |v| content_text(v) }.join(" ")
+      when nil then ""
+      else content.to_s
+      end
     end
 
     def apply_density(entries)

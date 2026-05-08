@@ -22,10 +22,11 @@ Use `ButterCut::BrollDirectorInputs.gather(library_dir:, roughcut_path:, hyperfr
 - `source_videos` (per-video audio transcript + visual transcript + summary)
 - `available_templates` (auto-discovered from `hyperframes/compositions/*/README.md`)
 
-Plus from the user / defaults:
+Plus the per-library `broll` block (surfaced as `inputs[:broll]`) and any per-call user override. Resolution order: explicit caller param → `library.yaml` `broll:` block → module default.
 
 - `density` — `"low" | "medium" | "high"` (default `"medium"`)
-- `score_threshold` — float (default `0.5`)
+- `score_threshold` — float in `0.0..1.0` (default `0.5`)
+- `blacklist_terms` — array of lowercase strings the user never wants graphics for (default `[]`)
 
 ## Parallelism
 
@@ -38,7 +39,7 @@ Inline the entire contents of `agent_prompt.md`, then append a clearly delimited
 ## After the sub-agent returns
 
 1. Parse the returned JSON array. If parsing fails, send the parse error back to the model and ask for a corrected JSON. Give up after one retry.
-2. Call `ButterCut::BrollDirectorPostprocess.assemble(...)` with the candidates + the gathered inputs + density + score_threshold. This filters by template/threshold, maps source-relative timing to rough-cut-relative, applies the density budget, assigns ids, and validates against `ButterCut::BrollManifest`.
+2. Call `ButterCut::BrollDirectorPostprocess.assemble(...)` with the candidates + the gathered inputs + density + score_threshold + blacklist_terms. This filters by template/threshold/blacklist, maps source-relative timing to rough-cut-relative, applies the density budget, assigns ids, and validates against `ButterCut::BrollManifest`.
 3. If a manifest already exists at `libraries/<library>/roughcuts/<stem>.broll.yaml`, log a one-line warning naming the prior entry count, then overwrite. Existing rendered MP4s in `broll/` are NOT deleted (their entry ids will be orphans the user can clean up later).
 4. Write the manifest via `manifest.save(path)` (where `manifest = BrollManifest.from_hash(...)`).
 5. Print: `Wrote N entries to libraries/<library>/roughcuts/<stem>.broll.yaml (density=<density>)`.

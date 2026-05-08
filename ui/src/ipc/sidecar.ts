@@ -127,6 +127,7 @@ export async function startBrollDirector(args: {
   roughcutStem: string;
   density?: BrollDirectorDensity;
   scoreThreshold?: number;
+  blacklistTerms?: string[];
 }): Promise<string> {
   if (
     args.scoreThreshold != null &&
@@ -139,6 +140,7 @@ export async function startBrollDirector(args: {
     roughcutStem: args.roughcutStem,
     density: args.density ?? null,
     scoreThreshold: args.scoreThreshold ?? null,
+    blacklistTerms: args.blacklistTerms ?? null,
   });
 }
 

@@ -70,6 +70,39 @@ RSpec.describe ButtercutUiSidecar::BrollDirectorController do
     end
   end
 
+  it "honors per-library broll defaults when caller passes nil and applies the blacklist" do
+    canned = File.read(File.expand_path(
+      "../../../../../spec/fixtures/broll_director/canned_model_response.json", __dir__
+    ))
+    client = double("anthropic_client")
+    captured_user = nil
+    allow(client).to receive(:complete) { |args| captured_user = args[:user]; canned }
+
+    with_libraries_root do |root|
+      lib_yaml = root.join("sample-library/library.yaml")
+      data = YAML.safe_load(lib_yaml.read, permitted_classes: [Date, Time])
+      data["broll"] = { "density" => "low", "score_threshold" => 0.5, "blacklist_terms" => ["rebase"] }
+      lib_yaml.write(data.to_yaml)
+
+      controller = described_class.new(
+        libraries_root: root.to_s, repo_root: repo_root,
+        notifier: notifier, registry: registry, client: client
+      )
+      result = controller.run!(library: "sample-library", roughcut_stem: "sample")
+
+      manifest_path = root.join("sample-library/roughcuts/sample.broll.yaml")
+      manifest = YAML.safe_load(manifest_path.read, permitted_classes: [Date, Time])
+      commands = manifest["entries"].map { |e| e["content"]["command"] }
+      expect(commands).not_to include("git rebase -i HEAD~3")
+      expect(commands).to include("git status")
+      expect(result[:entries_written]).to eq(commands.length)
+
+      payload = JSON.parse(captured_user)
+      expect(payload["DENSITY"]).to eq("low")
+      expect(payload["BLACKLIST_TERMS"]).to eq(["rebase"])
+    end
+  end
+
   it "rejects roughcut_stem values that try to escape the roughcuts directory" do
     with_libraries_root do |root|
       controller = described_class.new(

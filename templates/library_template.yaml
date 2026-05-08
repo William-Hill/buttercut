@@ -22,6 +22,13 @@ theme:
   template_set: tutorial-dark
   motion: snappy   # snappy | smooth | minimal
 
+# B-roll director controls — graphics-per-minute budget, score floor, and
+# a per-library blacklist of terms that should never become a graphic.
+broll:
+  density: medium           # low (2/min) | medium (4/min) | high (8/min)
+  score_threshold: 0.5      # drop candidates below this score (0.0..1.0)
+  blacklist_terms: []       # e.g. [function, method, variable]
+
 # Full footage summary - progressively updated after each video is transcribed. This can be up to 10-20 lines summarizing all of the footage we have.
 footage_summary: "No footage analyzed yet."
 # "This footage appears to be wedding footage. It includes the bride and groom getting dressed, preparing for the wedding ceremomy, the ceremony, and the post ceremony dinner and party."

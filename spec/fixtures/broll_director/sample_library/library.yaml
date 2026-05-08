@@ -4,6 +4,10 @@ editor: Final Cut Pro X
 transcript_refinement: true
 user_context: ""
 footage_summary: "A short tutorial covering interactive rebase."
+broll:
+  density: medium
+  score_threshold: 0.5
+  blacklist_terms: []
 theme:
   font_display: Inter
   font_mono: JetBrains Mono

@@ -13,6 +13,7 @@ You will be given the following values inline by the parent:
 - `AVAILABLE_TEMPLATES` — array of `{ name, readme_md }`. The README is the source of truth for that template's `content` shape. You MUST only emit candidates whose `template` is one of these names AND whose `content` matches the README.
 - `DENSITY` — `"low"` | `"medium"` | `"high"` (informational; the caller enforces a per-minute budget after you return)
 - `SCORE_THRESHOLD` — float (informational; the caller drops anything below this)
+- `BLACKLIST_TERMS` — array of lowercase strings the user has banned from b-roll. Do not emit candidates whose `content` references any of these (case-insensitive substring match). The caller also filters, but skipping them up front saves tokens.
 
 Return ONLY a JSON array (no surrounding prose, no markdown fence). Each element is one candidate:
 

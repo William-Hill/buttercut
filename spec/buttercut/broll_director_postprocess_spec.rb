@@ -84,6 +84,57 @@ RSpec.describe ButterCut::BrollDirectorPostprocess do
     expect { call(density: "extreme") }.to raise_error(ArgumentError, /density/)
   end
 
+  it "drops candidates whose content references a blacklisted term (case-insensitive)" do
+    manifest = call(score_threshold: 0.5)
+    expect(manifest["entries"].map { |e| e["content"]["command"] })
+      .to include("git rebase -i HEAD~3", "git status")
+
+    filtered = described_class.assemble(
+      library_name: "x", roughcut_stem: "y", roughcut: roughcut,
+      candidates: candidates, available_templates: available_templates,
+      density: "medium", score_threshold: 0.5,
+      blacklist_terms: ["REBASE"]
+    )
+    commands = filtered["entries"].map { |e| e["content"]["command"] }
+    expect(commands).not_to include("git rebase -i HEAD~3")
+    expect(commands).to include("git status")
+  end
+
+  it "rejects a non-array blacklist_terms" do
+    expect {
+      described_class.assemble(
+        library_name: "x", roughcut_stem: "y", roughcut: roughcut,
+        candidates: candidates, available_templates: available_templates,
+        density: "medium", score_threshold: 0.5, blacklist_terms: "rebase"
+      )
+    }.to raise_error(ArgumentError, /blacklist_terms/)
+  end
+
+  it "produces monotonically non-decreasing entry counts as density rises (acceptance)" do
+    many = (0..15).map do |i|
+      {
+        "source_video" => "tutorial_01.mov",
+        "source_start" => 30.0 + (i * 0.5), "source_end" => 30.5 + (i * 0.5),
+        "template" => "code-callout", "placement" => "overlay",
+        "content" => { "command" => "cmd_#{i}" },
+        "score" => 0.6 + (i % 5) * 0.05
+      }
+    end
+    counts = ["low", "medium", "high"].map do |d|
+      m = described_class.assemble(
+        library_name: "x", roughcut_stem: "y", roughcut: roughcut,
+        candidates: many, available_templates: available_templates,
+        density: d, score_threshold: 0.0
+      )
+      m["entries"].length
+    end
+    expect(counts).to eq(counts.sort)
+    expect(counts.first).to be < counts.last
+    expect(counts[0]).to be <= 2
+    expect(counts[1]).to be <= 4
+    expect(counts[2]).to be <= 8
+  end
+
   it "rejects non-numeric or out-of-range score_threshold instead of coercing to 0.0" do
     expect { call(score_threshold: nil) }.to raise_error(ArgumentError, /score_threshold/)
     expect { call(score_threshold: "abc") }.to raise_error(ArgumentError, /score_threshold/)
