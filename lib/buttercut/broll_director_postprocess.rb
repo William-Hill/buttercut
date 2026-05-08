@@ -1,9 +1,8 @@
 require "set"
 require_relative "broll_manifest"
+require_relative "timecode"
 
 class ButterCut
-  # Turns candidate JSON from the director model into a validated manifest hash
-  # ready for ButterCut::BrollManifest.from_hash. Pure functions only.
   class BrollDirectorPostprocess
     DENSITY_BUDGETS = { "low" => 2, "medium" => 4, "high" => 8 }.freeze
 
@@ -35,7 +34,6 @@ class ButterCut
 
     def assemble
       mapped = @candidates.filter_map { |c| map_candidate(c) }
-      mapped.sort_by! { |e| e["start"] }
       mapped = apply_density(mapped)
       mapped.each_with_index { |e, i| e["id"] = format("br-%04d", i + 1) }
       manifest = {
@@ -44,7 +42,7 @@ class ButterCut
         "roughcut" => @roughcut_stem,
         "entries" => mapped
       }
-      ButterCut::BrollManifest.from_hash(manifest)  # raises if invalid
+      ButterCut::BrollManifest.from_hash(manifest)
       manifest
     end
 
@@ -71,14 +69,11 @@ class ButterCut
       }
     end
 
-    # Walk the rough cut's clips in order, accumulating a cut-time offset.
-    # If [source_start, source_end] falls (even partially) inside a clip
-    # of the matching source_video, return its position in the cut.
     def locate_in_cut(c)
       cursor = 0.0
       @roughcut["clips"].each do |clip|
-        clip_in = parse_tc(clip["in"])
-        clip_out = parse_tc(clip["out"])
+        clip_in = ButterCut::Timecode.to_seconds(clip["in"])
+        clip_out = ButterCut::Timecode.to_seconds(clip["out"])
         clip_len = clip_out - clip_in
 
         if clip["source_video"] == c["source_video"]
@@ -95,11 +90,6 @@ class ButterCut
         cursor += clip_len
       end
       nil
-    end
-
-    def parse_tc(tc)
-      h, m, s = tc.to_s.split(":")
-      h.to_i * 3600 + m.to_i * 60 + s.to_f
     end
 
     def apply_density(entries)

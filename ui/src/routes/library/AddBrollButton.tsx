@@ -20,24 +20,14 @@ export function AddBrollButton({
 }: Props) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [message, setMessage] = useState<string>("");
-  const [entries, setEntries] = useState<number | undefined>(manifestEntryCount);
   const unlistenRef = useRef<UnlistenFn | null>(null);
-  const activeJobIdRef = useRef<string | null>(null);
-
-  // Tear down any subscription on unmount.
-  useEffect(() => {
-    return () => {
-      unlistenRef.current?.();
-      unlistenRef.current = null;
-      activeJobIdRef.current = null;
-    };
-  }, []);
 
   const disposeListener = () => {
     unlistenRef.current?.();
     unlistenRef.current = null;
-    activeJobIdRef.current = null;
   };
+
+  useEffect(() => disposeListener, []);
 
   const running = phase !== "idle" && phase !== "done" && phase !== "error";
 
@@ -47,14 +37,11 @@ export function AddBrollButton({
     setMessage("Starting…");
 
     try {
-      // Sidecar's broll_director_start returns the raw job_id string.
       const jobId = await startBrollDirector({ library, roughcutStem });
-      activeJobIdRef.current = jobId;
 
       const unlisten = await listenBrollDirectorJobEvents(jobId, (ev: BrollDirectorJobEvent) => {
         switch (ev.method) {
           case "broll_job_started":
-            // Confirms our job_id; nothing else to do.
             break;
           case "broll_phase":
             setPhase((ev.params.phase as Phase) ?? "gather");
@@ -62,7 +49,6 @@ export function AddBrollButton({
             break;
           case "broll_job_done":
             setPhase("done");
-            setEntries(ev.params.entries_written);
             setMessage(`${ev.params.entries_written} graphics ready to render`);
             disposeListener();
             break;
@@ -70,8 +56,6 @@ export function AddBrollButton({
             setPhase("error");
             setMessage(ev.params.message ?? "Director failed");
             disposeListener();
-            break;
-          default:
             break;
         }
       });
@@ -83,13 +67,13 @@ export function AddBrollButton({
     }
   };
 
-  const label = (() => {
+  function buttonLabel(): string {
     if (running) return message || "Working…";
-    if (phase === "done") return `B-Roll ready (${entries ?? "?"})`;
-    if (phase === "error") return `Failed — retry`;
+    if (phase === "done") return message || "B-Roll ready";
+    if (phase === "error") return "Failed — retry";
     if (hasManifest) return `Re-run B-Roll Director (${manifestEntryCount ?? "?"} entries)`;
     return "Add B-Roll";
-  })();
+  }
 
   return (
     <button
@@ -104,7 +88,7 @@ export function AddBrollButton({
           : "Generate b-roll manifest from this rough cut"
       }
     >
-      {label}
+      {buttonLabel()}
     </button>
   );
 }

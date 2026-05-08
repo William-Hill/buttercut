@@ -5,12 +5,6 @@ require "pathname"
 require "yaml"
 require "date"
 
-# Make the parent gem's lib/ available so we can require buttercut/* helpers.
-# Sidecar lives at <repo>/ui/sidecar/lib/buttercut_ui_sidecar/, so the gem's
-# lib/ is four levels up.
-gem_lib = File.expand_path("../../../../lib", __dir__)
-$LOAD_PATH.unshift(gem_lib) unless $LOAD_PATH.include?(gem_lib)
-
 require "buttercut/broll_director_inputs"
 require "buttercut/broll_director_postprocess"
 require "buttercut/broll_manifest"
@@ -18,13 +12,20 @@ require "buttercut/broll_manifest"
 require_relative "anthropic_client"
 
 module ButtercutUiSidecar
-  # UI-driven b-roll director. Mirrors RoughcutController's shape; loads the
-  # same agent prompt as the broll-director skill so behavior cannot drift.
   class BrollDirectorController
     PROMPT_RELATIVE_PATH = ".claude/skills/broll-director/agent_prompt.md"
     DEFAULT_DENSITY = "medium"
     DEFAULT_SCORE_THRESHOLD = 0.5
     MODEL = AnthropicClient::VISION_MODEL
+
+    EVENT_STARTED = "broll_job_started"
+    EVENT_PHASE   = "broll_phase"
+    EVENT_DONE    = "broll_job_done"
+    EVENT_FAILED  = "broll_job_failed"
+
+    PHASE_GATHER = "gather"
+    PHASE_MODEL  = "model"
+    PHASE_WRITE  = "write"
 
     def initialize(libraries_root:, repo_root:, notifier:, registry:, client:)
       raise ArgumentError, "libraries_root required" if libraries_root.to_s.empty?
@@ -42,6 +43,9 @@ module ButtercutUiSidecar
 
     def validate_and_start!(library:, roughcut_stem:, density: DEFAULT_DENSITY,
                             score_threshold: DEFAULT_SCORE_THRESHOLD)
+      roughcut_path = @libraries_root.join(library, "roughcuts", "#{roughcut_stem}.yaml")
+      raise "rough cut not found at #{roughcut_path}" unless roughcut_path.file?
+
       job_id = @registry.create(library)
       Thread.new do
         begin
@@ -52,7 +56,7 @@ module ButtercutUiSidecar
           )
         rescue StandardError => e
           warn "[broll-director #{job_id}] FAILED #{e.class}: #{e.message}"
-          @notifier.notify("broll_job_failed", job_id: job_id, message: e.message)
+          @notifier.notify(EVENT_FAILED, job_id: job_id, message: e.message)
         end
       end
       job_id
@@ -63,8 +67,8 @@ module ButtercutUiSidecar
       roughcut_path = lib_dir.join("roughcuts", "#{roughcut_stem}.yaml")
       raise "rough cut not found at #{roughcut_path}" unless roughcut_path.file?
 
-      notify(job_id, "broll_job_started", library: library, roughcut_stem: roughcut_stem)
-      notify(job_id, "broll_phase", phase: "gather", message: "Gathering transcripts and templates…")
+      notify(job_id, EVENT_STARTED, library: library, roughcut_stem: roughcut_stem)
+      notify(job_id, EVENT_PHASE, phase: PHASE_GATHER, message: "Gathering transcripts and templates…")
 
       inputs = ButterCut::BrollDirectorInputs.gather(
         library_dir: lib_dir.to_s,
@@ -72,11 +76,10 @@ module ButtercutUiSidecar
         hyperframes_dir: @repo_root.join("hyperframes").to_s
       )
 
-      notify(job_id, "broll_phase", phase: "model", message: "Asking the director for candidates…")
-      raw = call_model(inputs, density, score_threshold)
-      candidates = parse_or_retry(raw, inputs, density, score_threshold)
+      notify(job_id, EVENT_PHASE, phase: PHASE_MODEL, message: "Asking the director for candidates…")
+      candidates = JSON.parse(call_model(inputs, density, score_threshold))
 
-      notify(job_id, "broll_phase", phase: "write", message: "Validating and writing manifest…")
+      notify(job_id, EVENT_PHASE, phase: PHASE_WRITE, message: "Validating and writing manifest…")
       manifest_hash = ButterCut::BrollDirectorPostprocess.assemble(
         library_name: inputs[:library_name],
         roughcut_stem: inputs[:roughcut_stem],
@@ -91,7 +94,7 @@ module ButtercutUiSidecar
       warn_if_overwriting(manifest_path)
       ButterCut::BrollManifest.from_hash(manifest_hash).save(manifest_path.to_s)
 
-      notify(job_id, "broll_job_done",
+      notify(job_id, EVENT_DONE,
              manifest_path: manifest_path.to_s,
              entries_written: manifest_hash["entries"].length,
              density: density)
@@ -107,8 +110,7 @@ module ButtercutUiSidecar
     end
 
     def call_model(inputs, density, score_threshold)
-      system = prompt_text
-      user = JSON.pretty_generate(
+      user = JSON.generate(
         LIBRARY_NAME: inputs[:library_name],
         ROUGHCUT_STEM: inputs[:roughcut_stem],
         ROUGHCUT_YAML: inputs[:roughcut],
@@ -118,33 +120,23 @@ module ButtercutUiSidecar
         DENSITY: density,
         SCORE_THRESHOLD: score_threshold
       )
-      @client.complete(system: system, user: user, model: MODEL)
-    end
-
-    def parse_or_retry(raw, _inputs, _density, _score_threshold)
-      JSON.parse(raw)
-    rescue JSON::ParserError => e
-      retry_user = "Your previous response was not valid JSON: #{e.message}\n\n" \
-                   "Return ONLY the JSON array, no surrounding text."
-      raw2 = @client.complete(system: prompt_text, user: retry_user, model: MODEL)
-      JSON.parse(raw2)
+      @client.complete(system: prompt_text, user: user, model: MODEL)
     end
 
     def prompt_text
-      path = @repo_root.join(PROMPT_RELATIVE_PATH)
-      raise "broll-director prompt missing: #{path}" unless path.file?
-      path.read
+      @prompt_text ||= begin
+        path = @repo_root.join(PROMPT_RELATIVE_PATH)
+        raise "broll-director prompt missing: #{path}" unless path.file?
+        path.read
+      end
     end
 
     def warn_if_overwriting(path)
-      return unless path.file?
-      prior = begin
-        YAML.safe_load(path.read, permitted_classes: [Date, Time])
-      rescue StandardError
-        {}
-      end
+      prior = YAML.safe_load(path.read, permitted_classes: [Date, Time], aliases: true)
       n = (prior["entries"] || []).length
       warn "[broll-director] overwriting existing manifest at #{path} (#{n} prior entries)"
+    rescue Errno::ENOENT
+      nil
     end
   end
 end

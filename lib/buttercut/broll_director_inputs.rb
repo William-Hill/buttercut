@@ -3,11 +3,12 @@ require "json"
 require "date"
 require "pathname"
 
+require_relative "timecode"
+
 class ButterCut
-  # Pure-Ruby gathering of everything the b-roll director prompt needs.
-  # No LLM, no writes — just reads files the caller points at.
   class BrollDirectorInputs
     REQUIRED_VIDEO_KEYS = %w[transcript visual_transcript summary].freeze
+    SLICE_PAD_SECONDS = 2.0
 
     def self.gather(library_dir:, roughcut_path:, hyperframes_dir:)
       new(
@@ -61,25 +62,30 @@ class ButterCut
         h[File.basename(v["path"].to_s)] = v
       end
 
-      referenced = roughcut["clips"].map { |c| c["source_video"] }.uniq
+      windows_by_source = clip_windows(roughcut["clips"])
       missing_meta = []
       result = {}
 
-      referenced.each do |basename|
+      windows_by_source.each do |basename, windows|
         video = videos_by_basename[basename]
         if video.nil?
           missing_meta << basename
           next
         end
-        absent = REQUIRED_VIDEO_KEYS.reject { |k| !video[k].to_s.empty? }
-        if !absent.empty?
+        absent = REQUIRED_VIDEO_KEYS.select { |k| video[k].to_s.empty? }
+        unless absent.empty?
           missing_meta << "#{basename} (missing #{absent.join(', ')})"
           next
         end
+
+        audio = load_json(safe_transcript_path(video["transcript"]))
+        visual = load_json(safe_transcript_path(video["visual_transcript"]))
+        summary = safe_summary_path(video["summary"]).read
+
         result[basename] = {
-          audio_transcript: load_json(@library_dir.join("transcripts", video["transcript"])),
-          visual_transcript: load_json(@library_dir.join("transcripts", video["visual_transcript"])),
-          summary: @library_dir.join("summaries", video["summary"]).read
+          audio_transcript: slice_audio(audio, windows),
+          visual_transcript: slice_visual(visual, windows),
+          summary: summary
         }
       end
 
@@ -88,6 +94,52 @@ class ButterCut
       end
 
       result
+    end
+
+    # { source_video => [[in_s, out_s], ...] } sorted, padded.
+    def clip_windows(clips)
+      clips.each_with_object({}) do |clip, h|
+        src = clip["source_video"]
+        in_s = ButterCut::Timecode.to_seconds(clip["in"])
+        out_s = ButterCut::Timecode.to_seconds(clip["out"])
+        (h[src] ||= []) << [[in_s - SLICE_PAD_SECONDS, 0].max, out_s + SLICE_PAD_SECONDS]
+      end
+    end
+
+    def in_any_window?(t, windows)
+      windows.any? { |a, b| t >= a && t <= b }
+    end
+
+    def overlaps_any_window?(a, b, windows)
+      windows.any? { |wa, wb| b >= wa && a <= wb }
+    end
+
+    def slice_audio(audio, windows)
+      segs = audio["segments"] || []
+      kept = segs.select { |s| overlaps_any_window?(s["start"].to_f, s["end"].to_f, windows) }
+      audio.merge("segments" => kept)
+    end
+
+    def slice_visual(visual, windows)
+      frames = visual["frames"] || []
+      kept = frames.select { |f| in_any_window?(f["t"].to_f, windows) }
+      visual.merge("frames" => kept)
+    end
+
+    def safe_transcript_path(filename)
+      safe_subpath(@library_dir.join("transcripts"), filename)
+    end
+
+    def safe_summary_path(filename)
+      safe_subpath(@library_dir.join("summaries"), filename)
+    end
+
+    # Reject absolute paths and traversal — accept basenames only.
+    def safe_subpath(base, filename)
+      s = filename.to_s
+      raise ArgumentError, "invalid path reference: #{filename.inspect}" if Pathname.new(s).absolute?
+      raise ArgumentError, "invalid path reference: #{filename.inspect}" if s != File.basename(s)
+      base.expand_path.join(s)
     end
 
     def load_json(path)

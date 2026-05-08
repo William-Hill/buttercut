@@ -26,6 +26,12 @@ require_relative "lib/buttercut_ui_sidecar/stages/summarize"
 require_relative "lib/buttercut_ui_sidecar/brief_store"
 require_relative "lib/buttercut_ui_sidecar/presence"
 require_relative "lib/buttercut_ui_sidecar/roughcut_controller"
+
+# The b-roll controller depends on the parent gem's lib/. Wire its load path
+# here at the entry point rather than from inside the controller file.
+gem_lib = File.expand_path("../../lib", __dir__)
+$LOAD_PATH.unshift(gem_lib) unless $LOAD_PATH.include?(gem_lib)
+
 require_relative "lib/buttercut_ui_sidecar/broll_director_controller"
 require_relative "lib/buttercut_ui_sidecar/roughcut_exporter"
 require_relative "lib/buttercut_ui_sidecar/resolve_handoff"

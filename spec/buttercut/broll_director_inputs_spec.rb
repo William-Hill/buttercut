@@ -37,6 +37,49 @@ RSpec.describe ButterCut::BrollDirectorInputs do
     expect(callout[:readme_md]).not_to be_empty
   end
 
+  it "slices transcripts to the rough cut's clip windows (with pad)" do
+    result = described_class.gather(
+      library_dir: lib_dir,
+      roughcut_path: roughcut_path,
+      hyperframes_dir: hyperframes_dir
+    )
+    src = result[:source_videos]["tutorial_01.mov"]
+    seg_starts = src[:audio_transcript]["segments"].map { |s| s["start"] }
+    expect(seg_starts).to all(be_between(28.0, 112.0))
+    frame_ts = src[:visual_transcript]["frames"].map { |f| f["t"] }
+    expect(frame_ts).to all(be_between(28.0, 112.0))
+  end
+
+  it "rejects transcript references with absolute paths or traversal" do
+    Dir.mktmpdir do |tmp|
+      bad_lib = File.join(tmp, "lib")
+      FileUtils.mkdir_p(File.join(bad_lib, "roughcuts"))
+      FileUtils.mkdir_p(File.join(bad_lib, "transcripts"))
+      FileUtils.mkdir_p(File.join(bad_lib, "summaries"))
+      File.write(File.join(bad_lib, "library.yaml"), {
+        "library_name" => "x",
+        "theme" => {},
+        "videos" => [{
+          "path" => "/x/tutorial_01.mov",
+          "transcript" => "/etc/passwd",
+          "visual_transcript" => "v.json",
+          "summary" => "s.md"
+        }]
+      }.to_yaml)
+      File.write(File.join(bad_lib, "roughcuts", "r.yaml"), {
+        "clips" => [{ "source_video" => "tutorial_01.mov", "in" => "00:00:00.00", "out" => "00:00:05.00" }]
+      }.to_yaml)
+
+      expect {
+        described_class.gather(
+          library_dir: bad_lib,
+          roughcut_path: File.join(bad_lib, "roughcuts", "r.yaml"),
+          hyperframes_dir: hyperframes_dir
+        )
+      }.to raise_error(ArgumentError, /invalid path reference/)
+    end
+  end
+
   it "raises if a referenced source_video is missing transcripts in library.yaml" do
     Dir.mktmpdir do |tmp|
       bad_lib = File.join(tmp, "lib")
