@@ -26,6 +26,7 @@ require_relative "lib/buttercut_ui_sidecar/stages/summarize"
 require_relative "lib/buttercut_ui_sidecar/brief_store"
 require_relative "lib/buttercut_ui_sidecar/presence"
 require_relative "lib/buttercut_ui_sidecar/roughcut_controller"
+require_relative "lib/buttercut_ui_sidecar/broll_director_controller"
 require_relative "lib/buttercut_ui_sidecar/roughcut_exporter"
 require_relative "lib/buttercut_ui_sidecar/resolve_handoff"
 
@@ -174,6 +175,8 @@ module ButtercutUiSidecar
         roughcut_start(params)
       when "export_roughcut_artifacts"
         export_roughcut_artifacts(params)
+      when "start_broll_director"
+        broll_director_start(params)
       when "send_to_resolve"
         send_to_resolve(params)
       else raise UnknownMethod, "unknown method: #{method}"
@@ -267,6 +270,28 @@ module ButtercutUiSidecar
         client: client
       )
       rc.validate_and_start!(library: lib, brief_id: params.fetch("brief_id"))
+    end
+
+    def broll_director_start(params)
+      lib = params.fetch("library")
+      library_dir(lib)
+      api_key = @settings.api_key
+      raise StandardError, "missing_api_key" if api_key.nil? || api_key.empty?
+
+      client = ButtercutUiSidecar::AnthropicClient.new(api_key: api_key)
+      controller = ButtercutUiSidecar::BrollDirectorController.new(
+        libraries_root: @libraries_root.to_s,
+        repo_root: @repo_root.to_s,
+        notifier: @notifier,
+        registry: @registry,
+        client: client
+      )
+      controller.validate_and_start!(
+        library: lib,
+        roughcut_stem: params.fetch("roughcut_stem"),
+        density: params["density"] || ButtercutUiSidecar::BrollDirectorController::DEFAULT_DENSITY,
+        score_threshold: params["score_threshold"] || ButtercutUiSidecar::BrollDirectorController::DEFAULT_SCORE_THRESHOLD
+      )
     end
 
     def list_libraries
