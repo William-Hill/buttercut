@@ -1,0 +1,52 @@
+[
+  {
+    "source_video": "tutorial_01.mov",
+    "source_start": 35.0,
+    "source_end": 40.0,
+    "template": "code-callout",
+    "placement": "overlay",
+    "content": { "command": "git rebase -i HEAD~3", "caption": "Interactive rebase, last 3 commits" },
+    "score": 0.9,
+    "rationale": "introduces command, terminal visible"
+  },
+  {
+    "source_video": "tutorial_01.mov",
+    "source_start": 36.0,
+    "source_end": 38.0,
+    "template": "code-callout",
+    "placement": "overlay",
+    "content": { "command": "git log --oneline" },
+    "score": 0.4,
+    "rationale": "low-novelty filler"
+  },
+  {
+    "source_video": "tutorial_01.mov",
+    "source_start": 100.0,
+    "source_end": 105.0,
+    "template": "code-callout",
+    "placement": "overlay",
+    "content": { "command": "git status", "caption": "Confirm a clean tree" },
+    "score": 0.7,
+    "rationale": "structural beat, terminal visible"
+  },
+  {
+    "source_video": "tutorial_01.mov",
+    "source_start": 200.0,
+    "source_end": 205.0,
+    "template": "code-callout",
+    "placement": "overlay",
+    "content": { "command": "out-of-cut" },
+    "score": 0.95,
+    "rationale": "outside any clip"
+  },
+  {
+    "source_video": "tutorial_01.mov",
+    "source_start": 95.0,
+    "source_end": 99.0,
+    "template": "no-such-template",
+    "placement": "overlay",
+    "content": { "x": "y" },
+    "score": 0.8,
+    "rationale": "unknown template"
+  }
+]

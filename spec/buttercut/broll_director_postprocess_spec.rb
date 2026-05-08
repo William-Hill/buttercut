@@ -1,0 +1,86 @@
+require "spec_helper"
+require "json"
+require "buttercut/broll_director_postprocess"
+require "buttercut/broll_manifest"
+
+RSpec.describe ButterCut::BrollDirectorPostprocess do
+  let(:fixtures) { File.expand_path("../fixtures/broll_director", __dir__) }
+  let(:roughcut) {
+    {
+      "clips" => [
+        { "source_video" => "tutorial_01.mov", "in" => "00:00:30.00", "out" => "00:01:00.00" },
+        { "source_video" => "tutorial_01.mov", "in" => "00:01:20.00", "out" => "00:01:50.00" }
+      ]
+    }
+  }
+  let(:candidates) { JSON.parse(File.read(File.join(fixtures, "canned_model_response.json"))) }
+  let(:available_templates) { [{ name: "code-callout", readme_md: "" }] }
+
+  def call(opts = {})
+    described_class.assemble(
+      library_name: "sample-library",
+      roughcut_stem: "sample",
+      roughcut: roughcut,
+      candidates: candidates,
+      available_templates: available_templates,
+      density: opts.fetch(:density, "medium"),
+      score_threshold: opts.fetch(:score_threshold, 0.5)
+    )
+  end
+
+  it "drops candidates below the score threshold, outside any clip, or with an unknown template" do
+    manifest = call
+    contents = manifest["entries"].map { |e| e["content"] }
+    commands = contents.map { |c| c["command"] }
+    expect(commands).to contain_exactly("git rebase -i HEAD~3", "git status")
+  end
+
+  it "remaps source-relative timing to rough-cut-relative timing" do
+    manifest = call
+    rebase = manifest["entries"].find { |e| e["content"]["command"] == "git rebase -i HEAD~3" }
+    # source 35.0 - clip[0].in (30.0) = 5.0 into the cut
+    expect(rebase["start"]).to eq(5.0)
+    expect(rebase["end"]).to eq(10.0)
+    status = manifest["entries"].find { |e| e["content"]["command"] == "git status" }
+    # clip[0] is 30s long (0..30), clip[1] starts at 30 in the cut
+    # source 100.0 - clip[1].in (80.0) = 20.0 into clip[1] -> 30 + 20 = 50.0 in cut
+    expect(status["start"]).to eq(50.0)
+    expect(status["end"]).to eq(55.0)
+  end
+
+  it "assigns sequential ids in time order" do
+    manifest = call
+    expect(manifest["entries"].map { |e| e["id"] }).to eq(["br-0001", "br-0002"])
+    starts = manifest["entries"].map { |e| e["start"] }
+    expect(starts).to eq(starts.sort)
+  end
+
+  it "applies a density budget per minute" do
+    many = (0..9).map do |i|
+      {
+        "source_video" => "tutorial_01.mov",
+        "source_start" => 30.0 + i, "source_end" => 31.0 + i,
+        "template" => "code-callout", "placement" => "overlay",
+        "content" => { "command" => "cmd_#{i}" },
+        "score" => 0.5 + i * 0.05
+      }
+    end
+    manifest = described_class.assemble(
+      library_name: "x", roughcut_stem: "y", roughcut: roughcut,
+      candidates: many, available_templates: available_templates,
+      density: "low", score_threshold: 0.0
+    )
+    expect(manifest["entries"].length).to eq(2)  # low = 2/min, all in minute 0
+    kept = manifest["entries"].map { |e| e["content"]["command"] }
+    expect(kept).to contain_exactly("cmd_9", "cmd_8")
+  end
+
+  it "produces a manifest that validates via BrollManifest" do
+    manifest = call
+    expect { ButterCut::BrollManifest.from_hash(manifest) }.not_to raise_error
+  end
+
+  it "rejects unsupported density" do
+    expect { call(density: "extreme") }.to raise_error(ArgumentError, /density/)
+  end
+end
