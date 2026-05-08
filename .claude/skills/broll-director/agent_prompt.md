@@ -14,6 +14,7 @@ You will be given the following values inline by the parent:
 - `DENSITY` — `"low"` | `"medium"` | `"high"` (informational; the caller enforces a per-minute budget after you return)
 - `SCORE_THRESHOLD` — float (informational; the caller drops anything below this)
 - `BLACKLIST_TERMS` — array of lowercase strings the user has banned from b-roll. Do not emit candidates whose `content` references any of these (case-insensitive substring match). The caller also filters, but skipping them up front saves tokens.
+- `CODE_VOCABULARY` — array of lowercase tokens the user has confirmed are real CLI tools / language keywords for this library (e.g. `git`, `npm`, `kubectl`). Use it to disambiguate "get rebase" → `git rebase` and to bias toward valid commands.
 
 Return ONLY a JSON array (no surrounding prose, no markdown fence). Each element is one candidate:
 
@@ -44,6 +45,11 @@ Field rules:
   - emphasis — does the speaker dwell on it, repeat it, or call it out?
   - structural_role — is it a step number, heading, named example, stat, or quote?
 - `rationale` is one short sentence explaining the score.
+
+Code-callout normalization (applies only when `template == "code-callout"`):
+- The transcript is what the speaker said out loud, so commands arrive in verbal form: "get rebase dash i tilde three" must render as `git rebase -i HEAD~3`. Translate spoken forms ("dash i", "tilde three", "uppercase H", "open paren", "slash") into canonical syntax. Use `CODE_VOCABULARY` to resolve homophones like "get" → `git`.
+- Cross-check against the visual transcript frame nearest the candidate's time. If the on-screen description quotes or paraphrases a specific command and it disagrees with the verbal form, prefer the on-screen form — the screen is ground truth. When you do this, prepend `"on-screen overrides verbal: <verbal-form>; "` to your `rationale` so the discrepancy is recorded in the manifest entry's notes.
+- If after normalization the `command` still looks like ordinary prose (no flags, no punctuation, no digits, no `CODE_VOCABULARY` token), drop the candidate. The caller also enforces this — better to drop than render wrong.
 
 Candidate selection — look for:
 - Named commands, files, functions, paths, error messages

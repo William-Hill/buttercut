@@ -26,6 +26,7 @@ broll:
   density: medium           # low (2/min) | medium (4/min) | high (8/min)
   score_threshold: 0.5
   blacklist_terms: []
+  code_vocabulary: []       # CLI tools / keywords the director can trust as code, e.g. [git, npm, kubectl]
 
 # Full footage summary - progressively updated after each video is transcribed. This can be up to 10-20 lines summarizing all of the footage we have.
 footage_summary: "No footage analyzed yet."

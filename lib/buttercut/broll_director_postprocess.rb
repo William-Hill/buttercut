@@ -8,7 +8,7 @@ class ButterCut
 
     def self.assemble(library_name:, roughcut_stem:, roughcut:, candidates:,
                       available_templates:, density:, score_threshold:,
-                      blacklist_terms: [])
+                      blacklist_terms: [], code_vocabulary: [])
       new(
         library_name: library_name,
         roughcut_stem: roughcut_stem,
@@ -17,13 +17,14 @@ class ButterCut
         available_templates: available_templates,
         density: density,
         score_threshold: score_threshold,
-        blacklist_terms: blacklist_terms
+        blacklist_terms: blacklist_terms,
+        code_vocabulary: code_vocabulary
       ).assemble
     end
 
     def initialize(library_name:, roughcut_stem:, roughcut:, candidates:,
                    available_templates:, density:, score_threshold:,
-                   blacklist_terms: [])
+                   blacklist_terms: [], code_vocabulary: [])
       raise ArgumentError, "candidates must be an array, got #{candidates.class}" unless candidates.is_a?(Array)
       bad = candidates.reject { |c| c.is_a?(Hash) }
       raise ArgumentError, "every candidate must be a hash; got #{bad.first.class} at index #{candidates.index(bad.first)}" unless bad.empty?
@@ -47,6 +48,8 @@ class ButterCut
       @score_threshold = threshold
       raise ArgumentError, "blacklist_terms must be an array, got #{blacklist_terms.class}" unless blacklist_terms.is_a?(Array)
       @blacklist_terms = blacklist_terms.map { |t| t.to_s.downcase.strip }.reject(&:empty?)
+      raise ArgumentError, "code_vocabulary must be an array, got #{code_vocabulary.class}" unless code_vocabulary.is_a?(Array)
+      @code_vocabulary = code_vocabulary.map { |t| t.to_s.downcase.strip }.reject(&:empty?).to_set
       @clip_windows = build_clip_windows(@roughcut["clips"])
     end
 
@@ -71,6 +74,7 @@ class ButterCut
       score = c["score"].to_f
       return nil if score < @score_threshold
       return nil if blacklisted?(c)
+      return nil if c["template"] == "code-callout" && !valid_code_command?(c["content"])
 
       mapping = locate_in_cut(c)
       return nil if mapping.nil?
@@ -117,6 +121,26 @@ class ButterCut
         return { start: mapped_start.round(2), end: mapped_end.round(2) }
       end
       nil
+    end
+
+    # A code-callout `command` should look like a shell/code string, not prose.
+    # Verbal-form leakage from transcription ("dash i tilde three") shows up
+    # as 3+ alphabetic words with no punctuation, no digits, and no token
+    # the library has marked as code vocabulary. Drop those — better to
+    # render nothing than confidently wrong code.
+    CODE_PUNCT = /[^\p{L}\p{N}\s_]/u.freeze
+
+    def valid_code_command?(content)
+      return false unless content.is_a?(Hash)
+      cmd = content["command"].to_s.strip
+      return false if cmd.empty?
+
+      return true if cmd.match?(CODE_PUNCT)
+      return true if cmd.match?(/\d/)
+
+      tokens = cmd.downcase.split(/\s+/)
+      return true if tokens.any? { |t| @code_vocabulary.include?(t) }
+      tokens.length < 3
     end
 
     def blacklisted?(c)

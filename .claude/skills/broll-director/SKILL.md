@@ -24,9 +24,7 @@ Use `ButterCut::BrollDirectorInputs.gather(library_dir:, roughcut_path:, hyperfr
 
 Plus the per-library `broll` block (surfaced as `inputs[:broll]`) and any per-call user override. Resolution order: explicit caller param → `library.yaml` `broll:` block → module default.
 
-- `density` — `"low" | "medium" | "high"` (default `"medium"`)
-- `score_threshold` — float in `0.0..1.0` (default `0.5`)
-- `blacklist_terms` — array of lowercase strings the user never wants graphics for (default `[]`)
+- `density`, `score_threshold`, `blacklist_terms`, `code_vocabulary` — see `templates/library_template.yaml` for shapes and defaults.
 
 ## Parallelism
 

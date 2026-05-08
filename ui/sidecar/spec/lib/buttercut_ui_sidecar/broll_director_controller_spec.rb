@@ -81,7 +81,7 @@ RSpec.describe ButtercutUiSidecar::BrollDirectorController do
     with_libraries_root do |root|
       lib_yaml = root.join("sample-library/library.yaml")
       data = YAML.safe_load(lib_yaml.read, permitted_classes: [Date, Time])
-      data["broll"] = { "density" => "low", "score_threshold" => 0.7, "blacklist_terms" => ["rebase"] }
+      data["broll"] = { "density" => "low", "score_threshold" => 0.7, "blacklist_terms" => ["rebase"], "code_vocabulary" => ["git", "npm"] }
       lib_yaml.write(data.to_yaml)
 
       controller = described_class.new(
@@ -101,6 +101,7 @@ RSpec.describe ButtercutUiSidecar::BrollDirectorController do
       expect(payload["DENSITY"]).to eq("low")
       expect(payload["SCORE_THRESHOLD"]).to eq(0.7)
       expect(payload["BLACKLIST_TERMS"]).to eq(["rebase"])
+      expect(payload["CODE_VOCABULARY"]).to eq(["git", "npm"])
     end
   end
 

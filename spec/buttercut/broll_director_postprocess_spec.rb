@@ -163,6 +163,54 @@ RSpec.describe ButterCut::BrollDirectorPostprocess do
     expect(counts[2]).to be <= 8
   end
 
+  it "drops code-callout candidates whose command looks like verbal-form leakage" do
+    leaky = [
+      {
+        "source_video" => "tutorial_01.mov",
+        "source_start" => 35.0, "source_end" => 40.0,
+        "template" => "code-callout", "placement" => "overlay",
+        "content" => { "command" => "get rebase dash i tilde three" },
+        "score" => 0.9, "rationale" => "verbal leakage"
+      },
+      {
+        "source_video" => "tutorial_01.mov",
+        "source_start" => 100.0, "source_end" => 105.0,
+        "template" => "code-callout", "placement" => "overlay",
+        "content" => { "command" => "git rebase -i HEAD~3" },
+        "score" => 0.9, "rationale" => "valid"
+      }
+    ]
+    manifest = described_class.assemble(
+      library_name: "x", roughcut_stem: "y", roughcut: roughcut,
+      candidates: leaky, available_templates: available_templates,
+      density: "medium", score_threshold: 0.5
+    )
+    commands = manifest["entries"].map { |e| e["content"]["command"] }
+    expect(commands).to eq(["git rebase -i HEAD~3"])
+  end
+
+  it "keeps short alphabetic commands (e.g. `ls`, `git status`) and vocabulary matches" do
+    cands = [
+      { "source_video" => "tutorial_01.mov", "source_start" => 35.0, "source_end" => 40.0,
+        "template" => "code-callout", "placement" => "overlay",
+        "content" => { "command" => "ls" }, "score" => 0.9, "rationale" => "" },
+      { "source_video" => "tutorial_01.mov", "source_start" => 36.0, "source_end" => 41.0,
+        "template" => "code-callout", "placement" => "overlay",
+        "content" => { "command" => "git status" }, "score" => 0.9, "rationale" => "" },
+      { "source_video" => "tutorial_01.mov", "source_start" => 100.0, "source_end" => 105.0,
+        "template" => "code-callout", "placement" => "overlay",
+        "content" => { "command" => "npm install lodash react" }, "score" => 0.9, "rationale" => "" }
+    ]
+    manifest = described_class.assemble(
+      library_name: "x", roughcut_stem: "y", roughcut: roughcut,
+      candidates: cands, available_templates: available_templates,
+      density: "medium", score_threshold: 0.5,
+      code_vocabulary: ["npm"]
+    )
+    commands = manifest["entries"].map { |e| e["content"]["command"] }
+    expect(commands).to contain_exactly("ls", "git status", "npm install lodash react")
+  end
+
   it "rejects non-numeric or out-of-range score_threshold instead of coercing to 0.0" do
     expect { call(score_threshold: nil) }.to raise_error(ArgumentError, /score_threshold/)
     expect { call(score_threshold: "abc") }.to raise_error(ArgumentError, /score_threshold/)
