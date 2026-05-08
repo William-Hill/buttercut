@@ -295,8 +295,9 @@ module ButtercutUiSidecar
       controller.validate_and_start!(
         library: lib,
         roughcut_stem: params.fetch("roughcut_stem"),
-        density: params["density"] || ButtercutUiSidecar::BrollDirectorController::DEFAULT_DENSITY,
-        score_threshold: params["score_threshold"] || ButtercutUiSidecar::BrollDirectorController::DEFAULT_SCORE_THRESHOLD
+        density: params["density"],
+        score_threshold: params["score_threshold"],
+        blacklist_terms: params["blacklist_terms"]
       )
     end
 

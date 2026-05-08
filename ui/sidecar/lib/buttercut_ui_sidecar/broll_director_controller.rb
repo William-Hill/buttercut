@@ -43,8 +43,8 @@ module ButtercutUiSidecar
       @client = client
     end
 
-    def validate_and_start!(library:, roughcut_stem:, density: DEFAULT_DENSITY,
-                            score_threshold: DEFAULT_SCORE_THRESHOLD)
+    def validate_and_start!(library:, roughcut_stem:, density: nil,
+                            score_threshold: nil, blacklist_terms: nil)
       stem = safe_roughcut_stem!(roughcut_stem)
       roughcut_path = @libraries_root.join(library, "roughcuts", "#{stem}.yaml")
       raise "rough cut not found at #{roughcut_path}" unless roughcut_path.file?
@@ -57,6 +57,7 @@ module ButtercutUiSidecar
           run!(
             library: library, roughcut_stem: stem,
             density: density, score_threshold: score_threshold,
+            blacklist_terms: blacklist_terms,
             job_id: job_id
           )
         rescue StandardError => e
@@ -69,7 +70,8 @@ module ButtercutUiSidecar
       job_id
     end
 
-    def run!(library:, roughcut_stem:, density:, score_threshold:, job_id: nil)
+    def run!(library:, roughcut_stem:, density: nil, score_threshold: nil,
+             blacklist_terms: nil, job_id: nil)
       stem = safe_roughcut_stem!(roughcut_stem)
       lib_dir = @libraries_root.join(library)
       roughcut_path = lib_dir.join("roughcuts", "#{stem}.yaml")
@@ -84,8 +86,13 @@ module ButtercutUiSidecar
         hyperframes_dir: @repo_root.join("hyperframes").to_s
       )
 
+      lib_broll = inputs[:broll] || {}
+      effective_density = density || lib_broll["density"] || DEFAULT_DENSITY
+      effective_threshold = score_threshold || lib_broll["score_threshold"] || DEFAULT_SCORE_THRESHOLD
+      effective_blacklist = blacklist_terms || lib_broll["blacklist_terms"] || []
+
       notify(job_id, EVENT_PHASE, phase: PHASE_MODEL, message: "Asking the director for candidates…")
-      candidates = JSON.parse(call_model(inputs, density, score_threshold))
+      candidates = JSON.parse(call_model(inputs, effective_density, effective_threshold, effective_blacklist))
 
       notify(job_id, EVENT_PHASE, phase: PHASE_WRITE, message: "Validating and writing manifest…")
       manifest_hash = ButterCut::BrollDirectorPostprocess.assemble(
@@ -94,8 +101,9 @@ module ButtercutUiSidecar
         roughcut: inputs[:roughcut],
         candidates: candidates,
         available_templates: inputs[:available_templates],
-        density: density,
-        score_threshold: score_threshold
+        density: effective_density,
+        score_threshold: effective_threshold,
+        blacklist_terms: effective_blacklist
       )
 
       manifest_path = lib_dir.join("roughcuts", "#{stem}.broll.yaml")
@@ -105,7 +113,7 @@ module ButtercutUiSidecar
       notify(job_id, EVENT_DONE,
              manifest_path: manifest_path.to_s,
              entries_written: manifest_hash["entries"].length,
-             density: density)
+             density: effective_density)
 
       { manifest_path: manifest_path.to_s, entries_written: manifest_hash["entries"].length }
     end
@@ -125,7 +133,7 @@ module ButtercutUiSidecar
       @notifier.notify(event, job_id: job_id, **payload)
     end
 
-    def call_model(inputs, density, score_threshold)
+    def call_model(inputs, density, score_threshold, blacklist_terms)
       user = JSON.generate(
         LIBRARY_NAME: inputs[:library_name],
         ROUGHCUT_STEM: inputs[:roughcut_stem],
@@ -134,7 +142,8 @@ module ButtercutUiSidecar
         SOURCE_VIDEOS: inputs[:source_videos],
         AVAILABLE_TEMPLATES: inputs[:available_templates],
         DENSITY: density,
-        SCORE_THRESHOLD: score_threshold
+        SCORE_THRESHOLD: score_threshold,
+        BLACKLIST_TERMS: blacklist_terms
       )
       @client.complete(system: prompt_text, user: user, model: MODEL)
     end

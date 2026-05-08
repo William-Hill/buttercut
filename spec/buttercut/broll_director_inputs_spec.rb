@@ -21,6 +21,7 @@ RSpec.describe ButterCut::BrollDirectorInputs do
     expect(result[:roughcut_stem]).to eq("sample")
     expect(result[:roughcut]["clips"].length).to eq(2)
     expect(result[:theme]["template_set"]).to eq("tutorial-dark")
+    expect(result[:broll]).to eq("density" => "medium", "score_threshold" => 0.5, "blacklist_terms" => [])
 
     sources = result[:source_videos]
     expect(sources.keys).to contain_exactly("tutorial_01.mov")

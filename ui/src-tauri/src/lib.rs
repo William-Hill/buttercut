@@ -170,6 +170,7 @@ async fn start_broll_director(
     roughcut_stem: String,
     density: Option<String>,
     score_threshold: Option<f64>,
+    blacklist_terms: Option<Vec<String>>,
 ) -> Result<Value, String> {
     sidecar::call(
         "start_broll_director",
@@ -178,6 +179,7 @@ async fn start_broll_director(
             "roughcut_stem": roughcut_stem,
             "density": density,
             "score_threshold": score_threshold,
+            "blacklist_terms": blacklist_terms,
         }),
     )
     .await
