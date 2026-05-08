@@ -35,6 +35,18 @@ module ButtercutUiSidecar
       raise InvalidApiKey, e.message
     end
 
+    # Convenience wrapper: send a single user message with a system prompt and
+    # return the assistant's text content as a string.
+    def complete(system:, user:, model:)
+      response = messages_create(
+        model: model,
+        max_tokens: 8192,
+        system: system,
+        messages: [{ role: "user", content: user }]
+      )
+      self.class.message_body_text(response)
+    end
+
     # Normalizes SDK response objects (or Hash) to a single assistant text string.
     def self.message_body_text(response)
       return "" if response.nil?
