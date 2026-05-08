@@ -120,6 +120,21 @@ export async function startRoughcut(library: string, briefId: string): Promise<{
   return invoke("start_roughcut", { library, briefId });
 }
 
+export async function startBrollDirector(args: {
+  library: string;
+  roughcutStem: string;
+  density?: string;
+  scoreThreshold?: number;
+}): Promise<string> {
+  // The sidecar's `broll_director_start` returns the raw job_id string.
+  return invoke<string>("start_broll_director", {
+    library: args.library,
+    roughcutStem: args.roughcutStem,
+    density: args.density ?? null,
+    scoreThreshold: args.scoreThreshold ?? null,
+  });
+}
+
 export async function exportRoughcutArtifacts(
   library: string,
   yamlPath: string,

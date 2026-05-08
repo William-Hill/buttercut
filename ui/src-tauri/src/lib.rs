@@ -165,6 +165,26 @@ async fn start_roughcut(library: String, brief_id: String) -> Result<Value, Stri
 }
 
 #[tauri::command]
+async fn start_broll_director(
+    library: String,
+    roughcut_stem: String,
+    density: Option<String>,
+    score_threshold: Option<f64>,
+) -> Result<Value, String> {
+    sidecar::call(
+        "start_broll_director",
+        json!({
+            "library": library,
+            "roughcut_stem": roughcut_stem,
+            "density": density,
+            "score_threshold": score_threshold,
+        }),
+    )
+    .await
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn export_roughcut_artifacts(
     library: String,
     yaml_path: String,
@@ -370,6 +390,7 @@ pub fn run() {
             upsert_brief,
             fork_brief,
             start_roughcut,
+            start_broll_director,
             export_roughcut_artifacts,
             send_to_resolve,
             read_library_text_file

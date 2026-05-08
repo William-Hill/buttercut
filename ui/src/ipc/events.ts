@@ -72,3 +72,31 @@ export async function listenRoughcutJobEvents(
 ): Promise<UnlistenFn> {
   return listenSidecarJobChannel<RoughcutJobEvent>(jobId, handler);
 }
+
+export type BrollDirectorJobEvent =
+  | {
+      method: "broll_job_started";
+      params: { job_id: string; library: string; roughcut_stem: string; ts?: string };
+    }
+  | {
+      method: "broll_phase";
+      params: { job_id: string; phase: string; message?: string; ts?: string };
+    }
+  | {
+      method: "broll_job_done";
+      params: {
+        job_id: string;
+        manifest_path: string;
+        entries_written: number;
+        density?: string;
+        ts?: string;
+      };
+    }
+  | { method: "broll_job_failed"; params: { job_id: string; message: string; ts?: string } };
+
+export async function listenBrollDirectorJobEvents(
+  jobId: string,
+  handler: (event: BrollDirectorJobEvent) => void,
+): Promise<UnlistenFn> {
+  return listenSidecarJobChannel<BrollDirectorJobEvent>(jobId, handler);
+}
