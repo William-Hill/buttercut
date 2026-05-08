@@ -23,7 +23,7 @@ The vertical slice for Hyperframes already runs end-to-end when the manifest is 
 
 ## Architecture
 
-```
+```text
 .claude/skills/broll-director/
   SKILL.md                           # parent dispatch brief
   agent_prompt.md                    # canonical director prompt (single source of truth)
@@ -32,7 +32,8 @@ ui/sidecar/lib/buttercut_ui_sidecar/
   broll_director_controller.rb       # mirrors RoughcutController; loads .claude/skills/broll-director/agent_prompt.md directly
 
 ui/src/routes/library/
-  RoughcutTimeline.tsx               # adds "Add B-Roll" button per finished rough cut row
+  AddBrollButton.tsx                 # renders inside BriefComposer's done sheet
+  BriefComposer.tsx                  # mounts AddBrollButton next to the existing artifact buttons
 
 lib/buttercut/
   broll_director_inputs.rb           # pure-Ruby gathering of inputs from disk (used by both surfaces)
@@ -41,6 +42,9 @@ lib/buttercut/
 spec/buttercut/
   broll_director_inputs_spec.rb
   broll_director_postprocess_spec.rb
+
+ui/sidecar/spec/lib/buttercut_ui_sidecar/
+  broll_director_controller_spec.rb  # exercises the full controller pipeline against a stubbed model response
 
 spec/fixtures/broll_director/
   sample_library/                    # minimal library with one rough cut + transcripts
@@ -80,14 +84,14 @@ Density mapping (hardcoded in this spec; #31 will move it to library.yaml):
 
 The model is asked to return a JSON array of candidate entries. Each candidate has:
 
-```
+```jsonc
 {
   "source_video": "tutorial_01.mov",
   "source_start": 42.10,        // seconds into the SOURCE video
   "source_end":   47.80,
   "template": "code-callout",
   "placement": "overlay",       // overlay | cutaway | pip
-  "content": { ...template-specific... },
+  "content": { "command": "git rebase -i HEAD~3" },
   "score": 0.84,                // 0..1
   "rationale": "introduces `git rebase -i`, terminal visible, structural beat"
 }
@@ -128,17 +132,18 @@ Caller-side post-processing (in `broll_director_postprocess.rb`):
 
 ### UI button
 
-- New endpoint: `POST /libraries/:library/roughcuts/:stem/broll`
+- New sidecar op: `start_broll_director` (Tauri `invoke`, JSON-RPC-style dispatch in `buttercut_ui_sidecar.rb`).
 - `BrollDirectorController`:
-  - Same shape as `RoughcutController`: job registry, notifier, phase events (`gather`, `model`, `write`)
-  - Reads `agent_prompt.md` as system instructions, calls Anthropic API with the same inputs the skill passes
-  - Streams phase events to the UI
-  - Runs the same post-processing pipeline (`BrollDirectorPostprocess`) and writes the manifest
-- `RoughcutTimeline.tsx`:
-  - "Add B-Roll" button on each finished rough cut row
-  - Disabled while a director job is running for that rough cut
-  - On `broll_job_done` event, refresh the row to show entry count + a hint that rendering is the next step
-  - Stops at manifest write — no render trigger, no XML re-export
+  - Same shape as `RoughcutController`: real `JobRegistry`, notifier, phase events (`gather`, `model`, `write`).
+  - Reads `agent_prompt.md` as system instructions, calls the Anthropic API with the same inputs the skill passes.
+  - Validates `roughcut_stem` is a basename before any path joining (rejects `../`, slashes, empty).
+  - Streams phase events to the UI over the `sidecar-event:{jobId}` channel.
+  - Runs the same post-processing pipeline (`BrollDirectorPostprocess`) and writes the manifest.
+- `AddBrollButton.tsx` mounted inside `BriefComposer.tsx`:
+  - Renders next to the existing artifact buttons in the rough-cut "done" sheet.
+  - Disabled while its own director job is running.
+  - On `broll_job_done`, shows entry count + the implicit "rendering is next".
+  - Stops at manifest write — no render trigger, no XML re-export.
 
 ## Acceptance (from issue #30)
 
@@ -161,10 +166,11 @@ Plus:
 
 ## Tests
 
-- `spec/buttercut/broll_director_inputs_spec.rb` — gathering helpers: rough-cut clip enumeration, transcript-window slicing per clip, source→cut timecode mapping
-- `spec/buttercut/broll_director_postprocess_spec.rb` — pure functions: threshold filtering, density bucket pruning, id assignment, manifest assembly, validation hand-off
+- `spec/buttercut/broll_director_inputs_spec.rb` — gathering helpers: rough-cut clip enumeration, transcript-window slicing per clip, path-traversal rejection
+- `spec/buttercut/broll_director_postprocess_spec.rb` — pure functions: threshold filtering, density bucket pruning, id assignment, manifest assembly, validation hand-off, density / score_threshold input validation
+- `ui/sidecar/spec/lib/buttercut_ui_sidecar/broll_director_controller_spec.rb` — exercises the full controller pipeline end-to-end against a stubbed model response (uses the real `JobRegistry`); also covers `roughcut_stem` traversal rejection
 - Smoke: a fixture rough cut + canned model response (JSON file) → post-processing produces a schema-valid manifest with the expected entry count
-- No tests added for the sidecar controller or the React button (consistent with how `RoughcutController` ships today)
+- No automated test for the React button (consistent with how the rest of the React UI ships today)
 
 ## Risks / open questions
 

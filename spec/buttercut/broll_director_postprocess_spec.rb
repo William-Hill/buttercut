@@ -83,4 +83,12 @@ RSpec.describe ButterCut::BrollDirectorPostprocess do
   it "rejects unsupported density" do
     expect { call(density: "extreme") }.to raise_error(ArgumentError, /density/)
   end
+
+  it "rejects non-numeric or out-of-range score_threshold instead of coercing to 0.0" do
+    expect { call(score_threshold: nil) }.to raise_error(ArgumentError, /score_threshold/)
+    expect { call(score_threshold: "abc") }.to raise_error(ArgumentError, /score_threshold/)
+    expect { call(score_threshold: -0.1) }.to raise_error(ArgumentError, /score_threshold/)
+    expect { call(score_threshold: 1.1) }.to raise_error(ArgumentError, /score_threshold/)
+    expect { call(score_threshold: Float::INFINITY) }.to raise_error(ArgumentError, /score_threshold/)
+  end
 end

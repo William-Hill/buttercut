@@ -33,7 +33,15 @@ class ButterCut
       @budget = DENSITY_BUDGETS.fetch(density) {
         raise ArgumentError, "density must be one of #{DENSITY_BUDGETS.keys.inspect}, got #{density.inspect}"
       }
-      @score_threshold = score_threshold.to_f
+      threshold = begin
+        Float(score_threshold)
+      rescue TypeError, ArgumentError
+        raise ArgumentError, "score_threshold must be a finite number between 0.0 and 1.0, got #{score_threshold.inspect}"
+      end
+      unless threshold.finite? && threshold.between?(0.0, 1.0)
+        raise ArgumentError, "score_threshold must be a finite number between 0.0 and 1.0, got #{score_threshold.inspect}"
+      end
+      @score_threshold = threshold
     end
 
     def assemble
