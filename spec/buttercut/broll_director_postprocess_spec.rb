@@ -100,6 +100,34 @@ RSpec.describe ButterCut::BrollDirectorPostprocess do
     expect(commands).to include("git status")
   end
 
+  it "applies the blacklist to terms buried in nested content (hashes and arrays)" do
+    nested = [
+      {
+        "source_video" => "tutorial_01.mov",
+        "source_start" => 35.0, "source_end" => 40.0,
+        "template" => "code-callout", "placement" => "overlay",
+        "content" => { "meta" => { "tags" => ["git rebase -i HEAD~3"] }, "command" => "buried" },
+        "score" => 0.9, "rationale" => "buried in nested array"
+      },
+      {
+        "source_video" => "tutorial_01.mov",
+        "source_start" => 100.0, "source_end" => 105.0,
+        "template" => "code-callout", "placement" => "overlay",
+        "content" => { "command" => "git status", "caption" => "clean tree" },
+        "score" => 0.8, "rationale" => "clean"
+      }
+    ]
+    filtered = described_class.assemble(
+      library_name: "x", roughcut_stem: "y", roughcut: roughcut,
+      candidates: nested, available_templates: available_templates,
+      density: "medium", score_threshold: 0.5,
+      blacklist_terms: ["REBASE"]
+    )
+    commands = filtered["entries"].map { |e| e["content"]["command"] }
+    expect(commands).not_to include("buried")
+    expect(commands).to include("git status")
+  end
+
   it "rejects a non-array blacklist_terms" do
     expect {
       described_class.assemble(
