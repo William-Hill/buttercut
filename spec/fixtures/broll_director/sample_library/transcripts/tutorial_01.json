@@ -1,0 +1,11 @@
+{
+  "video_path": "/fixtures/tutorial_01.mov",
+  "language": "en",
+  "segments": [
+    { "start": 30.0, "end": 35.0, "text": "Today we'll look at git rebase interactive." },
+    { "start": 35.0, "end": 45.0, "text": "Run git rebase -i HEAD~3 to edit the last three commits." },
+    { "start": 45.0, "end": 60.0, "text": "Pick, squash, fixup, reword - those are your main options." },
+    { "start": 80.0, "end": 90.0, "text": "Step one: stash any uncommitted changes first." },
+    { "start": 90.0, "end": 110.0, "text": "Step two: run git status to confirm a clean tree." }
+  ]
+}

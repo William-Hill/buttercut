@@ -1,0 +1,8 @@
+project: sample
+clips:
+  - source_video: tutorial_01.mov
+    in:  "00:00:30.00"
+    out: "00:01:00.00"
+  - source_video: tutorial_01.mov
+    in:  "00:01:20.00"
+    out: "00:01:50.00"

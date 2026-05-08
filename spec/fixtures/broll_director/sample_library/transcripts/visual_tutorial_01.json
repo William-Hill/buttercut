@@ -1,0 +1,10 @@
+{
+  "video_path": "/fixtures/tutorial_01.mov",
+  "frames": [
+    { "t": 32.0, "description": "Talking head of presenter, no terminal visible." },
+    { "t": 40.0, "description": "Terminal visible showing a git log." },
+    { "t": 50.0, "description": "Terminal with interactive rebase editor open." },
+    { "t": 85.0, "description": "Talking head only." },
+    { "t": 100.0, "description": "Terminal running git status." }
+  ]
+}
