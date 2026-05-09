@@ -2,22 +2,25 @@
 # Export rough cut YAML to editor XML using ButterCut.
 
 require 'date'
+require 'fileutils'
+require 'pathname'
 require 'yaml'
 require 'buttercut'
 require_relative 'recipe_from_roughcut'
 require_relative 'generate_apply_script'
 
 class RoughcutExporter
-  def self.export(roughcut_path:, output_path:, editor: 'fcpx')
-    new(roughcut_path: roughcut_path, output_path: output_path, editor: editor).export
+  def self.export(roughcut_path:, output_path:, editor: 'fcpx', skip_render: false)
+    new(roughcut_path: roughcut_path, output_path: output_path, editor: editor, skip_render: skip_render).export
   end
 
-  def initialize(roughcut_path:, output_path:, editor: 'fcpx')
+  def initialize(roughcut_path:, output_path:, editor: 'fcpx', skip_render: false)
     raise ArgumentError, "roughcut_path required" if roughcut_path.nil? || roughcut_path.empty?
     raise ArgumentError, "output_path required" if output_path.nil? || output_path.empty?
     @roughcut_path = roughcut_path
     @output_path = output_path
     @editor_choice = editor
+    @skip_render = skip_render || ENV['BUTTERCUT_SKIP_BROLL_RENDER'] == '1'
   end
 
   def export
@@ -30,6 +33,10 @@ class RoughcutExporter
 
     library_data = YAML.load_file(library_yaml_path, permitted_classes: [Date, Time, Symbol])
     video_paths = library_data['videos'].each_with_object({}) { |v, h| h[File.basename(v['path'])] = v['path'] }
+    @library_name = library_name
+    @library_data = library_data
+
+    render_unrendered_entries! unless @skip_render
 
     buttercut_clips = build_buttercut_clips(roughcut, video_paths)
     overlays = load_overlays
@@ -84,6 +91,54 @@ class RoughcutExporter
 
   def broll_yaml_path
     @roughcut_path.sub(/\.[^.]+\z/, '') + '.broll.yaml'
+  end
+
+  # Late-render: any manifest entry whose `rendered` is empty OR whose
+  # rendered MP4 is missing on disk gets rendered now via Hyperframes,
+  # and the manifest is updated in-place. This is the "render at export
+  # time" half of issue #34. The other half (swap-in-place) is handled
+  # by BrollRenderer's idempotent overwrite of the same MP4 path.
+  def render_unrendered_entries!
+    return if manifest.nil?
+
+    needs_render = manifest.entries.select { |e| entry_needs_render?(e) }
+    return if needs_render.empty?
+
+    output_dir = File.join(library_root, 'broll')
+    FileUtils.mkdir_p(output_dir)
+    theme = @library_data['theme'] || {}
+
+    puts "Rendering #{needs_render.length} b-roll entr#{needs_render.length == 1 ? 'y' : 'ies'} via Hyperframes..."
+    needs_render.each_with_index do |entry, i|
+      print "  [#{i + 1}/#{needs_render.length}] #{entry['id']} (#{entry['template']})... "
+      mp4_path = ButterCut::BrollRenderer.render(
+        entry: entry,
+        theme: theme,
+        output_dir: output_dir,
+        hyperframes_dir: hyperframes_dir
+      )
+      entry['rendered'] = relative_to_library(mp4_path)
+      manifest.save(broll_yaml_path)
+      puts "✓ #{entry['rendered']}"
+    end
+  end
+
+  def entry_needs_render?(entry)
+    rendered = entry['rendered']
+    return true if rendered.nil? || rendered.to_s.empty?
+    !File.exist?(absolute_rendered_path(rendered))
+  end
+
+  def library_root
+    File.dirname(File.dirname(@roughcut_path))
+  end
+
+  def relative_to_library(path)
+    Pathname.new(File.expand_path(path)).relative_path_from(Pathname.new(File.expand_path(library_root))).to_s
+  end
+
+  def hyperframes_dir
+    @hyperframes_dir ||= File.expand_path('../../../hyperframes', __dir__)
   end
 
   def manifest
@@ -196,16 +251,20 @@ class RoughcutExporter
 end
 
 if __FILE__ == $PROGRAM_NAME
-  if ARGV.length < 2 || ARGV.length > 3
-    puts "Usage: #{$PROGRAM_NAME} <roughcut.yaml> <output.xml> [editor]"
+  args = ARGV.reject { |a| a == '--no-render' }
+  skip_render = ARGV.include?('--no-render')
+  if args.length < 2 || args.length > 3
+    puts "Usage: #{$PROGRAM_NAME} <roughcut.yaml> <output.xml> [editor] [--no-render]"
     puts "  editor: fcpx (default), premiere, or resolve"
+    puts "  --no-render: skip the Hyperframes b-roll late-render pass"
     exit 1
   end
   begin
     RoughcutExporter.export(
-      roughcut_path: ARGV[0],
-      output_path: ARGV[1],
-      editor: ARGV[2] || 'fcpx'
+      roughcut_path: args[0],
+      output_path: args[1],
+      editor: args[2] || 'fcpx',
+      skip_render: skip_render
     )
   rescue => e
     warn "Error: #{e.message}"
