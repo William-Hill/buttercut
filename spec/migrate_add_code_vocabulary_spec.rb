@@ -8,11 +8,8 @@ RSpec.describe '006_migrate_add_code_vocabulary.rb' do
   let(:script_path) { File.expand_path('../scripts/006_migrate_add_code_vocabulary.rb', __dir__) }
 
   def run_migration(library_name, cwd)
-    Open3.capture2('ruby', script_path, library_name, chdir: cwd)
-  end
-
-  def run_migration_status(library_name, cwd)
-    Open3.capture2e('ruby', script_path, library_name, chdir: cwd).last.exitstatus
+    out, status = Open3.capture2e('ruby', script_path, library_name, chdir: cwd)
+    [out, status.exitstatus]
   end
 
   def write_library(dir, name, content)
@@ -66,9 +63,9 @@ RSpec.describe '006_migrate_add_code_vocabulary.rb' do
         videos: []
       YAML
       write_library(dir, 'my-lib', yaml_no_broll)
-      out, _ = run_migration('my-lib', dir)
+      out, status = run_migration('my-lib', dir)
       expect(out).to match(/run scripts\/005/)
-      expect(run_migration_status('my-lib', dir)).to eq(1)
+      expect(status).to eq(1)
     end
   end
 
@@ -76,7 +73,8 @@ RSpec.describe '006_migrate_add_code_vocabulary.rb' do
     Dir.mktmpdir do |dir|
       write_library(dir, 'my-lib', post_005_yaml)
       run_migration('my-lib', dir)
-      expect(run_migration_status('my-lib', dir)).to eq(0)
+      _, status = run_migration('my-lib', dir)
+      expect(status).to eq(0)
     end
   end
 
