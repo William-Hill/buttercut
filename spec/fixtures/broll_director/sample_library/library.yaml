@@ -8,6 +8,7 @@ broll:
   density: medium
   score_threshold: 0.5
   blacklist_terms: []
+  code_vocabulary: []
 theme:
   font_display: Inter
   font_mono: JetBrains Mono

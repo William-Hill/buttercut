@@ -212,6 +212,7 @@ Known migration triggers (match each to a `scripts/NNN_migrate_*.rb` script via 
 - video entries with `summary` missing (added in [Unreleased]; missing means "todo", default to empty string)
 - `theme` missing (added in [Unreleased]; run `scripts/004_migrate_add_theme.rb` to add the default block with `template_set: tutorial-dark`)
 - `broll` missing (added in [Unreleased]; run `scripts/005_migrate_add_broll.rb` to add the default block with `density: medium`, `score_threshold: 0.5`, `blacklist_terms: []`)
+- `broll.code_vocabulary` missing (added in [Unreleased]; run `scripts/006_migrate_add_code_vocabulary.rb` to append `code_vocabulary: []` to the existing `broll:` block — requires 005 to have run first)
 - video entries with `transcript_path` / `visual_transcript_path` (renamed to `transcript` / `visual_transcript` in 0.3.0)
 - video entries with `file_size_mb` (removed in 0.3.0)
 

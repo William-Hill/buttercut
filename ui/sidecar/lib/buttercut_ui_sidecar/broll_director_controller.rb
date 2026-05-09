@@ -90,9 +90,10 @@ module ButtercutUiSidecar
       effective_density = density || lib_broll["density"] || DEFAULT_DENSITY
       effective_threshold = score_threshold || lib_broll["score_threshold"] || DEFAULT_SCORE_THRESHOLD
       effective_blacklist = blacklist_terms || lib_broll["blacklist_terms"] || []
+      effective_vocabulary = lib_broll["code_vocabulary"] || []
 
       notify(job_id, EVENT_PHASE, phase: PHASE_MODEL, message: "Asking the director for candidates…")
-      candidates = JSON.parse(call_model(inputs, effective_density, effective_threshold, effective_blacklist))
+      candidates = JSON.parse(call_model(inputs, effective_density, effective_threshold, effective_blacklist, effective_vocabulary))
 
       notify(job_id, EVENT_PHASE, phase: PHASE_WRITE, message: "Validating and writing manifest…")
       manifest_hash = ButterCut::BrollDirectorPostprocess.assemble(
@@ -103,7 +104,8 @@ module ButtercutUiSidecar
         available_templates: inputs[:available_templates],
         density: effective_density,
         score_threshold: effective_threshold,
-        blacklist_terms: effective_blacklist
+        blacklist_terms: effective_blacklist,
+        code_vocabulary: effective_vocabulary
       )
 
       manifest_path = lib_dir.join("roughcuts", "#{stem}.broll.yaml")
@@ -133,7 +135,7 @@ module ButtercutUiSidecar
       @notifier.notify(event, job_id: job_id, **payload)
     end
 
-    def call_model(inputs, density, score_threshold, blacklist_terms)
+    def call_model(inputs, density, score_threshold, blacklist_terms, code_vocabulary)
       user = JSON.generate(
         LIBRARY_NAME: inputs[:library_name],
         ROUGHCUT_STEM: inputs[:roughcut_stem],
@@ -143,7 +145,8 @@ module ButtercutUiSidecar
         AVAILABLE_TEMPLATES: inputs[:available_templates],
         DENSITY: density,
         SCORE_THRESHOLD: score_threshold,
-        BLACKLIST_TERMS: blacklist_terms
+        BLACKLIST_TERMS: blacklist_terms,
+        CODE_VOCABULARY: code_vocabulary
       )
       @client.complete(system: prompt_text, user: user, model: MODEL)
     end
