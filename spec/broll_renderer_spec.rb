@@ -15,6 +15,14 @@ RSpec.describe ButterCut::BrollRenderer do
       expect { described_class.render }.to raise_error(ArgumentError)
     end
 
+    it 'accepts an empty theme hash (theme is forward-compat, not yet used)' do
+      Dir.mktmpdir do |out|
+        renderer = described_class.new(entry: entry, theme: {}, output_dir: out, hyperframes_dir: hyperframes_dir)
+        allow(renderer).to receive(:run_render!) { |cmd| FileUtils.touch(cmd[cmd.index('-o') + 1]) }
+        expect { renderer.render }.not_to raise_error
+      end
+    end
+
     it 'rejects an entry whose template has no composition' do
       Dir.mktmpdir do |out|
         bad = entry.merge('template' => 'does-not-exist')

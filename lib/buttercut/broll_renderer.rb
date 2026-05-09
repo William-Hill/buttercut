@@ -17,7 +17,7 @@ class ButterCut
 
     def initialize(entry:, theme:, output_dir:, hyperframes_dir:)
       raise ArgumentError, 'entry hash required' unless entry.is_a?(Hash) && !entry.empty?
-      raise ArgumentError, 'theme hash required' unless theme.is_a?(Hash) && !theme.empty?
+      raise ArgumentError, 'theme hash required' unless theme.is_a?(Hash)
       raise ArgumentError, 'output_dir required' if !output_dir.is_a?(String) || output_dir.empty?
       raise ArgumentError, 'hyperframes_dir required' if !hyperframes_dir.is_a?(String) || hyperframes_dir.empty?
 
