@@ -72,17 +72,74 @@ RSpec.describe RoughcutExporter do
     end
   end
 
-  it "skips entries with rendered: null and warns" do
+  it "late-renders entries with rendered: null and updates the manifest" do
     with_library do |_root, roughcut, xml_out|
       broll_path = File.join(File.dirname(roughcut), 'sample_roughcut.broll.yaml')
       broll = YAML.load_file(broll_path)
       broll['entries'].first['rendered'] = nil
       File.write(broll_path, broll.to_yaml)
 
+      allow(ButterCut::BrollRenderer).to receive(:render) do |entry:, output_dir:, **_kw|
+        FileUtils.mkdir_p(output_dir)
+        path = File.join(output_dir, "#{entry['id']}.mp4")
+        FileUtils.cp(media_path, path)
+        path
+      end
+
+      RoughcutExporter.export(roughcut_path: roughcut, output_path: xml_out, editor: 'fcpx')
+
+      expect(ButterCut::BrollRenderer).to have_received(:render).once
+
+      updated = YAML.load_file(broll_path)
+      expect(updated['entries'].first['rendered']).to eq('broll/br-0001.mp4')
+
+      doc = Nokogiri::XML(File.read(xml_out)).remove_namespaces!
+      expect(doc.xpath('//spine//asset-clip[@lane="1"]').length).to eq(1)
+    end
+  end
+
+  it "re-renders entries whose rendered MP4 is missing on disk" do
+    with_library do |_root, roughcut, xml_out|
+      broll_path = File.join(File.dirname(roughcut), 'sample_roughcut.broll.yaml')
+      broll = YAML.load_file(broll_path)
+      broll['entries'].first['rendered'] = 'broll/br-0001.mp4'
+      File.write(broll_path, broll.to_yaml)
+
+      allow(ButterCut::BrollRenderer).to receive(:render) do |entry:, output_dir:, **_kw|
+        FileUtils.mkdir_p(output_dir)
+        path = File.join(output_dir, "#{entry['id']}.mp4")
+        FileUtils.cp(media_path, path)
+        path
+      end
+
+      RoughcutExporter.export(roughcut_path: roughcut, output_path: xml_out, editor: 'fcpx')
+
+      expect(ButterCut::BrollRenderer).to have_received(:render).once
+    end
+  end
+
+  it "does NOT re-render entries whose rendered MP4 already exists" do
+    with_library do |_root, roughcut, xml_out|
+      allow(ButterCut::BrollRenderer).to receive(:render)
+      RoughcutExporter.export(roughcut_path: roughcut, output_path: xml_out, editor: 'fcpx')
+      expect(ButterCut::BrollRenderer).not_to have_received(:render)
+    end
+  end
+
+  it "skip_render: true bypasses the render pass entirely (warns and skips on null)" do
+    with_library do |_root, roughcut, xml_out|
+      broll_path = File.join(File.dirname(roughcut), 'sample_roughcut.broll.yaml')
+      broll = YAML.load_file(broll_path)
+      broll['entries'].first['rendered'] = nil
+      File.write(broll_path, broll.to_yaml)
+
+      allow(ButterCut::BrollRenderer).to receive(:render)
+
       expect {
-        RoughcutExporter.export(roughcut_path: roughcut, output_path: xml_out, editor: 'fcpx')
+        RoughcutExporter.export(roughcut_path: roughcut, output_path: xml_out, editor: 'fcpx', skip_render: true)
       }.to output(/skipping br-0001.*rendered/i).to_stderr
 
+      expect(ButterCut::BrollRenderer).not_to have_received(:render)
       doc = Nokogiri::XML(File.read(xml_out)).remove_namespaces!
       expect(doc.xpath('//spine//asset-clip[@lane="1"]')).to be_empty
     end

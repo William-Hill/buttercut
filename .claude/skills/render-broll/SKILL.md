@@ -1,13 +1,18 @@
 ---
 name: render-broll
-description: Renders one b-roll manifest entry to MP4 via Hyperframes. Use when a broll.yaml manifest exists and entries need their `rendered` field populated.
+description: Renders one b-roll manifest entry to MP4 via Hyperframes. Use for swap-in-place re-renders after a manifest entry's content has been edited; the rough-cut export script auto-renders unrendered entries on its own.
 ---
 
 # Skill: Render B-Roll (parent brief)
 
-Takes one entry from a `broll.yaml` manifest plus the active library theme and produces an MP4 at `libraries/<library>/broll/<id>.mp4`.
+Takes one entry from a `broll.yaml` manifest plus the active library theme and produces an MP4 at `libraries/<library>/broll/<id>.mp4`. Idempotent — re-rendering an existing `<id>` overwrites the same MP4 path so timing/recipe/XML never change (the swap-in-place loop in `CLAUDE.md`).
 
 `SKILL.md` is the parent's dispatch brief. The sub-agent's working prompt lives in `agent_prompt.md` — inline its contents when launching the Task agent. Don't pass `SKILL.md`.
+
+## When to use
+
+- **Swap-in-place** (primary): user watched the rough cut in their NLE and asked for a fix to one entry. Edit `content` in `<roughcut>.broll.yaml`, dispatch this skill on the changed entry, user reloads the project in their NLE.
+- **Bulk pre-render** (rarely needed): the export script (`export_to_fcpxml.rb`) auto-renders entries whose `rendered` is empty or whose MP4 is missing. Use this skill explicitly only if you want renders to land before export, or if export was run with `--no-render` / `BUTTERCUT_SKIP_BROLL_RENDER=1`.
 
 ## Parallelism
 
