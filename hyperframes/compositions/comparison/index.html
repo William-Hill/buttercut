@@ -1,0 +1,96 @@
+<!doctype html>
+<html
+  lang="en"
+  data-composition-variables='[
+    {"id":"left_label","type":"string","label":"Left label","default":"Before"},
+    {"id":"left_text","type":"string","label":"Left text","default":"Manual rebase, error-prone"},
+    {"id":"right_label","type":"string","label":"Right label","default":"After"},
+    {"id":"right_text","type":"string","label":"Right text","default":"Interactive rebase, in-flight fixes"},
+    {"id":"duration","type":"number","label":"Duration","default":5},
+    {"id":"theme","type":"object","label":"Theme tokens","default":{}}
+  ]'
+>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>comparison</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+    <style>
+      :root {
+        --bg: #0d0d0d;
+        --fg: #f5f5f4;
+        --accent: #ff6b35;
+        --muted: #a3a3a3;
+        --font-display: 'Inter', system-ui, sans-serif;
+        --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--bg); color: var(--fg); }
+      body { font-family: var(--font-display); }
+      .mono { font-family: var(--font-mono); }
+      .col {
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 24px;
+        padding: 64px;
+        min-height: 600px;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="comparison"
+      data-start="0"
+      data-duration="5"
+      data-width="1920"
+      data-height="1080"
+    >
+      <div class="w-full h-full flex items-center justify-center px-32 gap-12">
+        <div id="left" class="col opacity-0 flex-1 max-w-[760px]">
+          <div id="ll" class="text-sm uppercase tracking-[0.3em] mono mb-6" style="color: var(--muted);">Before</div>
+          <div id="lt" class="text-4xl leading-snug font-medium" style="color: var(--fg);">Manual rebase, error-prone</div>
+        </div>
+        <div id="vs" class="opacity-0 mono text-3xl uppercase tracking-[0.3em]" style="color: var(--accent);">vs</div>
+        <div id="right" class="col opacity-0 flex-1 max-w-[760px]" style="border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent);">
+          <div id="rl" class="text-sm uppercase tracking-[0.3em] mono mb-6" style="color: var(--accent);">After</div>
+          <div id="rt" class="text-4xl leading-snug font-medium" style="color: var(--fg);">Interactive rebase, in-flight fixes</div>
+        </div>
+      </div>
+    </div>
+    <script>
+      const vars = (window.__hyperframes && window.__hyperframes.getVariables && window.__hyperframes.getVariables()) || {};
+      const duration = 5;
+
+      const theme = vars.theme || {};
+      const root = document.documentElement.style;
+      if (theme.color_bg) root.setProperty('--bg', theme.color_bg);
+      if (theme.color_fg) root.setProperty('--fg', theme.color_fg);
+      if (theme.color_accent) root.setProperty('--accent', theme.color_accent);
+      if (theme.font_display) root.setProperty('--font-display', `'${theme.font_display}', system-ui, sans-serif`);
+      if (theme.font_mono) root.setProperty('--font-mono', `'${theme.font_mono}', ui-monospace, monospace`);
+
+      document.getElementById('ll').textContent = vars.left_label || 'Before';
+      document.getElementById('lt').textContent = vars.left_text || '';
+      document.getElementById('rl').textContent = vars.right_label || 'After';
+      document.getElementById('rt').textContent = vars.right_text || '';
+
+      const motion = (theme.motion || 'snappy');
+      const cfg = motion === 'minimal'
+        ? { dur: 0.3, ease: 'none', x: 0, gap: 0.0 }
+        : motion === 'smooth'
+          ? { dur: 0.7, ease: 'power2.out', x: 24, gap: 0.15 }
+          : { dur: 0.45, ease: 'power3.out', x: 32, gap: 0.12 };
+
+      const tl = gsap.timeline({ paused: true });
+      tl.fromTo('#left',  { opacity: 0, x: -cfg.x }, { opacity: 1, x: 0, duration: cfg.dur, ease: cfg.ease }, 0);
+      tl.fromTo('#right', { opacity: 0, x:  cfg.x }, { opacity: 1, x: 0, duration: cfg.dur, ease: cfg.ease }, cfg.gap);
+      tl.fromTo('#vs',    { opacity: 0, scale: 0.7 }, { opacity: 1, scale: 1, duration: cfg.dur, ease: 'back.out(1.7)' }, cfg.dur * 0.6);
+      tl.to(['#left','#right','#vs'], { opacity: 1, duration: Math.max(0, duration - cfg.dur * 2 - 0.5) }, cfg.dur + 0.5);
+      tl.to(['#left','#right','#vs'], { opacity: 0, duration: cfg.dur, ease: 'power2.in' }, Math.max(cfg.dur, duration - cfg.dur));
+      window.__timelines = window.__timelines || {};
+      window.__timelines["comparison"] = tl;
+    </script>
+  </body>
+</html>
