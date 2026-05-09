@@ -11,6 +11,10 @@ RSpec.describe '006_migrate_add_code_vocabulary.rb' do
     Open3.capture2('ruby', script_path, library_name, chdir: cwd)
   end
 
+  def run_migration_status(library_name, cwd)
+    Open3.capture2e('ruby', script_path, library_name, chdir: cwd).last.exitstatus
+  end
+
   def write_library(dir, name, content)
     lib_dir = File.join(dir, 'libraries', name)
     FileUtils.mkdir_p(lib_dir)
@@ -54,7 +58,7 @@ RSpec.describe '006_migrate_add_code_vocabulary.rb' do
     end
   end
 
-  it 'refuses to run when no broll block exists' do
+  it 'refuses to run when no broll block exists and exits non-zero' do
     Dir.mktmpdir do |dir|
       yaml_no_broll = <<~YAML
         library_name: my-lib
@@ -64,6 +68,15 @@ RSpec.describe '006_migrate_add_code_vocabulary.rb' do
       write_library(dir, 'my-lib', yaml_no_broll)
       out, _ = run_migration('my-lib', dir)
       expect(out).to match(/run scripts\/005/)
+      expect(run_migration_status('my-lib', dir)).to eq(1)
+    end
+  end
+
+  it 'exits 0 on idempotent re-run (already-migrated is success, not failure)' do
+    Dir.mktmpdir do |dir|
+      write_library(dir, 'my-lib', post_005_yaml)
+      run_migration('my-lib', dir)
+      expect(run_migration_status('my-lib', dir)).to eq(0)
     end
   end
 

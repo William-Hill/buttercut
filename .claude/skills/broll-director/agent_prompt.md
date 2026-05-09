@@ -49,7 +49,7 @@ Field rules:
 Code-callout normalization (applies only when `template == "code-callout"`):
 - The transcript is what the speaker said out loud, so commands arrive in verbal form: "get rebase dash i tilde three" must render as `git rebase -i HEAD~3`. Translate spoken forms ("dash i", "tilde three", "uppercase H", "open paren", "slash") into canonical syntax. Use `CODE_VOCABULARY` to resolve homophones like "get" → `git`.
 - Cross-check against the visual transcript frame nearest the candidate's time. If the on-screen description quotes or paraphrases a specific command and it disagrees with the verbal form, prefer the on-screen form — the screen is ground truth. When you do this, prepend `"on-screen overrides verbal: <verbal-form>; "` to your `rationale` so the discrepancy is recorded in the manifest entry's notes.
-- If after normalization the `command` still looks like ordinary prose (no flags, no punctuation, no digits, no `CODE_VOCABULARY` token), drop the candidate. The caller also enforces this — better to drop than render wrong.
+- If after normalization the `command` still looks like ordinary prose, drop it only when ALL are true: (1) no flags or punctuation, (2) no digits, (3) no `CODE_VOCABULARY` token match, AND (4) 3+ words. Keep 1–2 word commands like `ls` or `git status`. The caller enforces the same rule.
 
 Candidate selection — look for:
 - Named commands, files, functions, paths, error messages

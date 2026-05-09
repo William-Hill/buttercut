@@ -24,14 +24,14 @@ class MigrateAddCodeVocabulary
       return 1
     end
 
-    if @args[0] == '--all'
+    ok = if @args[0] == '--all'
       migrate_all
     else
       migrate_one(@args[0])
     end
 
     puts "\nMigration complete."
-    0
+    ok ? 0 : 1
   end
 
   private
@@ -44,7 +44,7 @@ class MigrateAddCodeVocabulary
   def migrate_all
     libraries = Dir.glob("libraries/*/library.yaml")
     puts "Migrating #{libraries.length} libraries...\n\n"
-    libraries.each do |path|
+    libraries.all? do |path|
       puts "#{path.split('/')[1]}:"
       migrate_library(path)
     end
@@ -106,7 +106,7 @@ class MigrateAddCodeVocabulary
 
   def note(msg)
     puts "  - #{msg}"
-    false
+    true
   end
 end
 
