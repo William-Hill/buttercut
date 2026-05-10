@@ -82,12 +82,19 @@
           ? { dur: 0.7, ease: 'power2.out', x: 24, gap: 0.15 }
           : { dur: 0.45, ease: 'power3.out', x: 32, gap: 0.12 };
 
+      const isMinimal = motion === 'minimal';
+      const vsFrom = isMinimal ? { opacity: 0 } : { opacity: 0, scale: 0.7 };
+      const vsTo = isMinimal
+        ? { opacity: 1, duration: cfg.dur, ease: 'none' }
+        : { opacity: 1, scale: 1, duration: cfg.dur, ease: 'back.out(1.7)' };
+      const outEase = isMinimal ? 'none' : 'power2.in';
+
       const tl = gsap.timeline({ paused: true });
       tl.fromTo('#left',  { opacity: 0, x: -cfg.x }, { opacity: 1, x: 0, duration: cfg.dur, ease: cfg.ease }, 0);
       tl.fromTo('#right', { opacity: 0, x:  cfg.x }, { opacity: 1, x: 0, duration: cfg.dur, ease: cfg.ease }, cfg.gap);
-      tl.fromTo('#vs',    { opacity: 0, scale: 0.7 }, { opacity: 1, scale: 1, duration: cfg.dur, ease: 'back.out(1.7)' }, cfg.dur * 0.6);
+      tl.fromTo('#vs', vsFrom, vsTo, cfg.dur * 0.6);
       tl.to(['#left','#right','#vs'], { opacity: 1, duration: Math.max(0, duration - cfg.dur * 2 - 0.5) }, cfg.dur + 0.5);
-      tl.to(['#left','#right','#vs'], { opacity: 0, duration: cfg.dur, ease: 'power2.in' }, Math.max(cfg.dur, duration - cfg.dur));
+      tl.to(['#left','#right','#vs'], { opacity: 0, duration: cfg.dur, ease: outEase }, Math.max(cfg.dur, duration - cfg.dur));
       window.__timelines = window.__timelines || {};
       window.__timelines["comparison"] = tl;
     </script>

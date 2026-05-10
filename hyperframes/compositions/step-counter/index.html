@@ -65,8 +65,13 @@
       if (theme.font_display) root.setProperty('--font-display', `'${theme.font_display}', system-ui, sans-serif`);
       if (theme.font_mono) root.setProperty('--font-mono', `'${theme.font_mono}', ui-monospace, monospace`);
 
-      document.getElementById('step').textContent = String(vars.step ?? 1);
-      document.getElementById('total').textContent = String(vars.total ?? 3);
+      const parsedStep = Number(vars.step);
+      const parsedTotal = Number(vars.total);
+      const totalValue = Number.isFinite(parsedTotal) ? Math.max(1, Math.floor(parsedTotal)) : 3;
+      const stepValue = Number.isFinite(parsedStep) ? Math.max(1, Math.floor(parsedStep)) : 1;
+      const safeStep = Math.min(stepValue, totalValue);
+      document.getElementById('step').textContent = String(safeStep);
+      document.getElementById('total').textContent = String(totalValue);
       document.getElementById('title').textContent = vars.title || '';
 
       const motion = (theme.motion || 'snappy');
