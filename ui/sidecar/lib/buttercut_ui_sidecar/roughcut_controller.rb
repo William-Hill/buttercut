@@ -185,11 +185,11 @@ module ButtercutUiSidecar
                user_bytes: user_blob.bytesize,
                clips_in_lib: (library_data["videos"] || []).length)
 
-      log.call("anthropic_request_send", model: MODEL, max_tokens: 24_576)
+      log.call("anthropic_request_send", model: MODEL, max_tokens: 8192)
       api_started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       response = @client.messages_create(
         model: MODEL,
-        max_tokens: 24_576,
+        max_tokens: 8192,
         temperature: 0.2,
         system: system_instructions,
         messages: [{ role: "user", content: user_blob }]
