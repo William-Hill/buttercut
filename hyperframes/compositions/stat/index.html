@@ -1,0 +1,87 @@
+<!doctype html>
+<html
+  lang="en"
+  data-composition-variables='[
+    {"id":"value","type":"string","label":"Value","default":"42%"},
+    {"id":"label","type":"string","label":"Label","default":"faster builds"},
+    {"id":"caption","type":"string","label":"Caption","default":""},
+    {"id":"theme","type":"object","label":"Theme tokens","default":{}}
+  ]'
+>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>stat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+    <style>
+      :root {
+        --bg: #0d0d0d;
+        --fg: #f5f5f4;
+        --accent: #ff6b35;
+        --muted: #a3a3a3;
+        --font-display: 'Inter', system-ui, sans-serif;
+        --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--bg); color: var(--fg); }
+      body { font-family: var(--font-display); }
+      .mono { font-family: var(--font-mono); }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="stat"
+      data-start="0"
+      data-duration="5"
+      data-width="1920"
+      data-height="1080"
+    >
+      <div class="w-full h-full flex items-center justify-center">
+        <div id="card" class="opacity-0 text-center max-w-[80%]">
+          <div id="value" class="font-bold leading-none tracking-tight" style="color: var(--accent); font-size: 22rem;">42%</div>
+          <div id="label" class="text-5xl mt-8 font-semibold" style="color: var(--fg);">faster builds</div>
+          <div id="caption" class="text-2xl mt-6 mono" style="color: var(--muted);"></div>
+        </div>
+      </div>
+    </div>
+    <script>
+      const vars = (window.__hyperframes && window.__hyperframes.getVariables && window.__hyperframes.getVariables()) || {};
+      const duration = 5;
+
+      const theme = vars.theme || {};
+      const root = document.documentElement.style;
+      if (theme.color_bg) root.setProperty('--bg', theme.color_bg);
+      if (theme.color_fg) root.setProperty('--fg', theme.color_fg);
+      if (theme.color_accent) root.setProperty('--accent', theme.color_accent);
+      if (theme.font_display) root.setProperty('--font-display', `'${theme.font_display}', system-ui, sans-serif`);
+      if (theme.font_mono) root.setProperty('--font-mono', `'${theme.font_mono}', ui-monospace, monospace`);
+
+      document.getElementById('value').textContent = vars.value || '';
+      document.getElementById('label').textContent = vars.label || '';
+      const captionText = (vars.caption || '').trim();
+      const captionEl = document.getElementById('caption');
+      if (captionText) {
+        captionEl.textContent = captionText;
+      } else {
+        captionEl.style.display = 'none';
+      }
+
+      const motion = (theme.motion || 'snappy');
+      const cfg = motion === 'minimal'
+        ? { dur: 0.3, ease: 'none', scale: 1 }
+        : motion === 'smooth'
+          ? { dur: 0.7, ease: 'power2.out', scale: 0.94 }
+          : { dur: 0.45, ease: 'back.out(1.7)', scale: 0.85 };
+
+      const tl = gsap.timeline({ paused: true });
+      tl.fromTo('#value', { opacity: 0, scale: cfg.scale }, { opacity: 1, scale: 1, duration: cfg.dur, ease: cfg.ease }, 0);
+      tl.fromTo('#label', { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: cfg.dur, ease: 'power2.out' }, cfg.dur * 0.5);
+      tl.to('#card', { opacity: 1, duration: Math.max(0, duration - cfg.dur * 2 - 0.5) }, cfg.dur + 0.5);
+      tl.to('#card', { opacity: 0, duration: cfg.dur, ease: 'power2.in' }, Math.max(cfg.dur, duration - cfg.dur));
+      window.__timelines = window.__timelines || {};
+      window.__timelines["stat"] = tl;
+    </script>
+  </body>
+</html>

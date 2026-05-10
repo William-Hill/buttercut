@@ -1,0 +1,79 @@
+<!doctype html>
+<html
+  lang="en"
+  data-composition-variables='[
+    {"id":"term","type":"string","label":"Term","default":"rebase"},
+    {"id":"definition","type":"string","label":"Definition","default":"Replay commits onto a new base."},
+    {"id":"theme","type":"object","label":"Theme tokens","default":{}}
+  ]'
+>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>term-card</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+    <style>
+      :root {
+        --bg: #0d0d0d;
+        --fg: #f5f5f4;
+        --accent: #ff6b35;
+        --muted: #a3a3a3;
+        --font-display: 'Inter', system-ui, sans-serif;
+        --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--bg); color: var(--fg); }
+      body { font-family: var(--font-display); }
+      .mono { font-family: var(--font-mono); }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="term-card"
+      data-start="0"
+      data-duration="5"
+      data-width="1920"
+      data-height="1080"
+    >
+      <div class="w-full h-full flex items-center justify-center px-32">
+        <div id="card" class="opacity-0 max-w-[70%]">
+          <div class="text-sm uppercase tracking-[0.3em] mono mb-6" style="color: var(--accent);">term</div>
+          <div id="term" class="text-8xl font-bold leading-none" style="color: var(--fg);">rebase</div>
+          <div class="h-[3px] w-32 my-10" style="background: var(--accent);"></div>
+          <div id="def" class="text-3xl leading-snug" style="color: var(--muted);">Replay commits onto a new base.</div>
+        </div>
+      </div>
+    </div>
+    <script>
+      const vars = (window.__hyperframes && window.__hyperframes.getVariables && window.__hyperframes.getVariables()) || {};
+      const duration = 5;
+
+      const theme = vars.theme || {};
+      const root = document.documentElement.style;
+      if (theme.color_bg) root.setProperty('--bg', theme.color_bg);
+      if (theme.color_fg) root.setProperty('--fg', theme.color_fg);
+      if (theme.color_accent) root.setProperty('--accent', theme.color_accent);
+      if (theme.font_display) root.setProperty('--font-display', `'${theme.font_display}', system-ui, sans-serif`);
+      if (theme.font_mono) root.setProperty('--font-mono', `'${theme.font_mono}', ui-monospace, monospace`);
+
+      document.getElementById('term').textContent = vars.term || 'rebase';
+      document.getElementById('def').textContent = vars.definition || '';
+
+      const motion = (theme.motion || 'snappy');
+      const cfg = motion === 'minimal'
+        ? { dur: 0.25, ease: 'none', y: 0 }
+        : motion === 'smooth'
+          ? { dur: 0.7, ease: 'power2.out', y: 16 }
+          : { dur: 0.4, ease: 'power3.out', y: 24 };
+
+      const tl = gsap.timeline({ paused: true });
+      tl.fromTo('#card', { opacity: 0, y: cfg.y }, { opacity: 1, y: 0, duration: cfg.dur, ease: cfg.ease }, 0);
+      tl.to('#card', { opacity: 1, duration: Math.max(0, duration - cfg.dur * 2) }, cfg.dur);
+      tl.to('#card', { opacity: 0, y: -cfg.y, duration: cfg.dur, ease: cfg.ease.replace('.out', '.in') }, Math.max(cfg.dur, duration - cfg.dur));
+      window.__timelines = window.__timelines || {};
+      window.__timelines["term-card"] = tl;
+    </script>
+  </body>
+</html>
