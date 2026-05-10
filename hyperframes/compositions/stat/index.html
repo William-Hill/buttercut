@@ -5,7 +5,6 @@
     {"id":"value","type":"string","label":"Value","default":"42%"},
     {"id":"label","type":"string","label":"Label","default":"faster builds"},
     {"id":"caption","type":"string","label":"Caption","default":""},
-    {"id":"duration","type":"number","label":"Duration","default":5},
     {"id":"theme","type":"object","label":"Theme tokens","default":{}}
   ]'
 >
@@ -61,7 +60,13 @@
 
       document.getElementById('value').textContent = vars.value || '';
       document.getElementById('label').textContent = vars.label || '';
-      document.getElementById('caption').textContent = vars.caption || '';
+      const captionText = (vars.caption || '').trim();
+      const captionEl = document.getElementById('caption');
+      if (captionText) {
+        captionEl.textContent = captionText;
+      } else {
+        captionEl.style.display = 'none';
+      }
 
       const motion = (theme.motion || 'snappy');
       const cfg = motion === 'minimal'

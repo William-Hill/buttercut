@@ -4,7 +4,6 @@
   data-composition-variables='[
     {"id":"quote","type":"string","label":"Quote","default":"Make it work, make it right, make it fast."},
     {"id":"attribution","type":"string","label":"Attribution","default":"Kent Beck"},
-    {"id":"duration","type":"number","label":"Duration","default":5},
     {"id":"theme","type":"object","label":"Theme tokens","default":{}}
   ]'
 >
@@ -52,7 +51,7 @@
         <div id="card" class="opacity-0 max-w-[75%] relative">
           <div class="mark" style="color: var(--accent);">&ldquo;</div>
           <div id="quote" class="text-6xl leading-tight font-medium" style="color: var(--fg); font-style: italic;">Make it work, make it right, make it fast.</div>
-          <div class="mt-10 flex items-center gap-4">
+          <div id="attr-row" class="mt-10 flex items-center gap-4">
             <div class="h-[2px] w-12" style="background: var(--accent);"></div>
             <div id="attr" class="text-2xl tracking-wide" style="color: var(--muted);">Kent Beck</div>
           </div>
@@ -72,7 +71,12 @@
       if (theme.font_mono) root.setProperty('--font-mono', `'${theme.font_mono}', ui-monospace, monospace`);
 
       document.getElementById('quote').textContent = vars.quote || '';
-      document.getElementById('attr').textContent = vars.attribution || '';
+      const attribution = (vars.attribution || '').trim();
+      if (attribution) {
+        document.getElementById('attr').textContent = attribution;
+      } else {
+        document.getElementById('attr-row').style.display = 'none';
+      }
 
       const motion = (theme.motion || 'snappy');
       const cfg = motion === 'minimal'
