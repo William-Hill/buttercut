@@ -104,6 +104,13 @@ export default function TranscriptZone({ library, video, onSeek, onClipChange }:
     return () => { cancelled = true; };
   }, [library, video]);
 
+  const fetchMatchCount = useCallback(async (token: string) => {
+    const r = await findTranscriptMatches(library, [token], "library");
+    const matches = r.matches.length;
+    const clips = new Set(r.matches.map((m) => m.clip)).size;
+    return { matches, clips };
+  }, [library]);
+
   if (!matchesActive(state, library, video)) {
     return <div ref={containerRef} className="transcript-zone transcript-zone--empty">{video ? "Loading transcripts…" : "No clip selected."}</div>;
   }
@@ -144,13 +151,6 @@ export default function TranscriptZone({ library, video, onSeek, onClipChange }:
     }
     setPopover(null);
   };
-
-  const fetchMatchCount = useCallback(async (token: string) => {
-    const r = await findTranscriptMatches(library, [token], "library");
-    const matches = r.matches.length;
-    const clips = new Set(r.matches.map((m) => m.clip)).size;
-    return { matches, clips };
-  }, [library]);
 
   const applyClipReplaceFromPanel = async (clipName: string, m: FinderMatch, newTokens: string[]) => {
     await editor.editClipScope(clipName, {

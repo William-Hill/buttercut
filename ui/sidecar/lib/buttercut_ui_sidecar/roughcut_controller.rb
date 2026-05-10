@@ -138,6 +138,8 @@ module ButtercutUiSidecar
         run_job(job: job, library: library, lib_dir: lib_dir, library_data: library_data,
                 combined_ndjson: combined, prompt_text: prompt_text, target_duration: target)
       rescue StandardError => e
+        warn "[roughcut #{job_id}] FAILED #{e.class}: #{e.message}"
+        warn e.backtrace.first(8).map { |l| "  #{l}" }.join("\n") if e.backtrace
         notify_failed(job_id, e.message)
       ensure
         @registry.delete(job_id)
@@ -153,7 +155,17 @@ module ButtercutUiSidecar
     end
 
     def run_job(job:, library:, lib_dir:, library_data:, combined_ndjson:, prompt_text:, target_duration:)
+      job_started_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      log = ->(step, **details) {
+        elapsed = (Process.clock_gettime(Process::CLOCK_MONOTONIC) - job_started_at).round(2)
+        suffix = details.empty? ? "" : " " + details.map { |k, v| "#{k}=#{v}" }.join(" ")
+        warn "[roughcut #{job.id} +#{elapsed}s] #{step}#{suffix}"
+      }
+
+      log.call("starting", library: library, target_s: target_duration)
+
       if job.canceled?
+        log.call("canceled_before_start")
         @notifier.notify("roughcut_job_failed", job_id: job.id, message: "canceled")
         return
       end
@@ -168,19 +180,33 @@ module ButtercutUiSidecar
         prompt_text: prompt_text,
         target_duration: target_duration
       )
+      log.call("prompt_built",
+               system_bytes: system_instructions.bytesize,
+               user_bytes: user_blob.bytesize,
+               clips_in_lib: (library_data["videos"] || []).length)
 
+      log.call("anthropic_request_send", model: MODEL, max_tokens: 8192)
+      api_started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       response = @client.messages_create(
         model: MODEL,
-        max_tokens: 24_576,
+        max_tokens: 8192,
         temperature: 0.2,
         system: system_instructions,
         messages: [{ role: "user", content: user_blob }]
       )
+      api_elapsed = (Process.clock_gettime(Process::CLOCK_MONOTONIC) - api_started).round(2)
       body = AnthropicClient.message_body_text(response)
+      log.call("anthropic_response", api_seconds: api_elapsed, body_bytes: body.bytesize)
+
       yaml_text = extract_yaml_fence(body)
+      log.call("yaml_extracted", yaml_bytes: yaml_text.bytesize)
+
       rough = YAML.safe_load(yaml_text, permitted_classes: [Date, Time, Symbol]) || {}
       (rough["clips"] || []).each { |c| c["dialogue"] = "" unless c.key?("dialogue") }
+      log.call("yaml_parsed", clip_count: (rough["clips"] || []).length)
+
       validate_roughcut_shape!(rough, library_data)
+      log.call("validated")
 
       enrich_metadata!(rough)
       ts = Time.now.utc.strftime("%Y%m%d_%H%M%S")
@@ -189,12 +215,15 @@ module ButtercutUiSidecar
       roughcuts_dir.mkpath
       yaml_path = roughcuts_dir.join("#{stem}.yaml")
       yaml_path.write(YAML.dump(stringify_keys_deep(rough)))
+      log.call("yaml_written", path: yaml_path.to_s)
 
       editor = resolve_editor_flag(library_data)
       xml_path = roughcuts_dir.join(editor == "fcpx" ? "#{stem}.fcpxml" : "#{stem}.xml")
 
       @notifier.notify("roughcut_phase", job_id: job.id, phase: "export", message: "Exporting XML and recipe…")
+      log.call("export_start", editor: editor, xml: xml_path.to_s)
       export!(yaml_path: yaml_path, xml_path: xml_path, editor: editor)
+      log.call("export_done")
 
       xml_base = xml_path.to_s.sub(/\.[^.]+\z/, "")
       recipe_path = "#{xml_base}.recipe.json"
@@ -217,6 +246,7 @@ module ButtercutUiSidecar
         apply_path: Pathname.new(apply_path).expand_path.to_s,
         clips: clips
       )
+      log.call("done", clip_count: clips.length)
     end
 
     def export!(yaml_path:, xml_path:, editor:)
