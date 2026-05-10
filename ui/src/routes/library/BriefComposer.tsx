@@ -106,6 +106,8 @@ export default function BriefComposer({ library, videos }: { library: string; vi
   const [targetSeconds, setTargetSeconds] = useState(120);
   const [currentBriefId, setCurrentBriefId] = useState<string | null>(null);
   const [phaseMessage, setPhaseMessage] = useState<string | null>(null);
+  const [phaseStartedAt, setPhaseStartedAt] = useState<number | null>(null);
+  const [phaseElapsedSec, setPhaseElapsedSec] = useState(0);
   const [jobRunning, setJobRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [donePaths, setDonePaths] = useState<RoughcutArtifactPaths | null>(null);
@@ -145,6 +147,19 @@ export default function BriefComposer({ library, videos }: { library: string; vi
     },
     [],
   );
+
+  // Tick once per second so the phase message can show elapsed time.
+  useEffect(() => {
+    if (phaseStartedAt === null) {
+      setPhaseElapsedSec(0);
+      return;
+    }
+    setPhaseElapsedSec(Math.floor((Date.now() - phaseStartedAt) / 1000));
+    const id = window.setInterval(() => {
+      setPhaseElapsedSec(Math.floor((Date.now() - phaseStartedAt) / 1000));
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [phaseStartedAt]);
 
   useEffect(() => {
     setPlayheadSec(0);
@@ -231,11 +246,13 @@ export default function BriefComposer({ library, videos }: { library: string; vi
 
       activeJobIdRef.current = jobId;
       setJobRunning(true);
+      setPhaseStartedAt(Date.now());
 
       const unlisten = await listenRoughcutJobEvents(jobId, (ev: RoughcutJobEvent) => {
         switch (ev.method) {
           case "roughcut_phase":
             setPhaseMessage(ev.params.message ?? ev.params.phase);
+            setPhaseStartedAt(Date.now());
             break;
           case "roughcut_job_done":
             setDonePaths({
@@ -256,6 +273,7 @@ export default function BriefComposer({ library, videos }: { library: string; vi
               });
             setJobRunning(false);
             setPhaseMessage(null);
+            setPhaseStartedAt(null);
             setExportFormat("resolve");
             activeJobIdRef.current = null;
             disposeRoughcutListener(unlisten, unlistenRef);
@@ -264,6 +282,7 @@ export default function BriefComposer({ library, videos }: { library: string; vi
             setError(ev.params.message);
             setJobRunning(false);
             setPhaseMessage(null);
+            setPhaseStartedAt(null);
             activeJobIdRef.current = null;
             disposeRoughcutListener(unlisten, unlistenRef);
             break;
@@ -276,6 +295,7 @@ export default function BriefComposer({ library, videos }: { library: string; vi
       setError(String(e));
       setJobRunning(false);
       setPhaseMessage(null);
+      setPhaseStartedAt(null);
       activeJobIdRef.current = null;
       unlistenRef.current?.();
       unlistenRef.current = null;
@@ -290,6 +310,7 @@ export default function BriefComposer({ library, videos }: { library: string; vi
     activeJobIdRef.current = null;
     setJobRunning(false);
     setPhaseMessage(null);
+    setPhaseStartedAt(null);
   }
 
   async function handleExportArtifacts(format: ExportFormat): Promise<RoughcutArtifactPaths | null> {
@@ -409,7 +430,12 @@ export default function BriefComposer({ library, videos }: { library: string; vi
               </button>
             )}
           </div>
-          {phaseMessage && <p className="brief-composer__phase">{phaseMessage}</p>}
+          {phaseMessage && (
+            <p className="brief-composer__phase">
+              {phaseMessage}
+              {phaseStartedAt !== null && <> · {phaseElapsedSec}s</>}
+            </p>
+          )}
           {error && <pre className="brief-composer__error">{error}</pre>}
         </div>
 
